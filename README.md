@@ -7,4 +7,6 @@
 A interactive graph based on the sentiment of a customers review. Each points coordinate was based on how postive or negative the review was.
 
 
-## Install Packages 
+## Download Database
+download your database of choice and have it in the same folder as this project.
+To download this Amazon Food reviews one go t 
