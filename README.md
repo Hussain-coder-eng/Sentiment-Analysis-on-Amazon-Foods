@@ -26,7 +26,8 @@ Your project structure should look like this:
 project-folder/
 ├── amazon-data/
 │   └── Reviews.csv
-├── sentiment_analysis.py
+├── Sentiment_Amazon.py
+├── requirements.txt
 ```
 
 ---
@@ -58,7 +59,7 @@ venv\Scripts\activate
 Run the following commands inside your terminal:
 
 ```bash
-pip install pandas numpy nltk tqdm transformers plotly tensorflow scipy
+python -m pip install -r requirements.txt
 ```
 
 ---
@@ -70,10 +71,6 @@ The code automatically downloads required NLTK resources. If you face issues, ru
 ```python
 import nltk
 nltk.download('vader_lexicon')
-nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('maxent_ne_chunker')
-nltk.download('words')
 ```
 
 ---
@@ -85,7 +82,7 @@ Make sure your terminal is in the project directory and the virtual environment 
 Run:
 
 ```bash
-python sentiment_analysis.py
+python Sentiment_Amazon.py
 ```
 
 The script will:
@@ -107,7 +104,7 @@ The plot shows **Negative vs Positive sentiment scores**, with hover information
 * To analyze fewer reviews, modify this line in your code:
 
 ```python
-df = df.head(500)  # Change the number as needed (max 500)
+MAX_REVIEWS = 500  # Change the number as needed (max 500)
 ```
 
 ---
