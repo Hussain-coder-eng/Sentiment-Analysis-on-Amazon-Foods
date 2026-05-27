@@ -28,7 +28,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 # ── Constants ──────────────────────────────────────────────────────────────────
 CSV_PATH = Path("/Users/hussianaltufayli/Coding/amazon-data/Reviews.csv")
 OUTPUT_PATH = Path(__file__).parent.parent / "public" / "demo-data.json"
-HF_MODEL = "cardiffnlp/twitter-roberta-base-sentiment"
+HF_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 MAX_REVIEWS = 500
 TEXT_CHAR_CAP = 1000
 GAP_SECONDS = 0.2          # 200ms between HF calls
@@ -117,13 +117,18 @@ def main() -> None:
     skipped: list[tuple[int, str]] = []
 
     for i, (_, row) in enumerate(tqdm(df.iterrows(), total=len(df), desc="Scoring")):
-        raw_text = str(row.get("Text") or "")
+        raw_text = row.get("Text")
+        raw_text = "" if pd.isna(raw_text) else str(raw_text)
         text = strip_html(raw_text)
         if not text:
             skipped.append((i, "empty text after HTML strip"))
             continue
 
-        rating = int(row.get("Score", 0))
+        try:
+            rating = int(row.get("Score", 0))
+        except (ValueError, TypeError):
+            skipped.append((i, "non-numeric rating"))
+            continue
         if not (1 <= rating <= 5):
             skipped.append((i, f"invalid rating {rating}"))
             continue
