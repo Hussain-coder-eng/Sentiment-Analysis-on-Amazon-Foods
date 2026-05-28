@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import DisagreementPanel from '@/components/DisagreementPanel';
 import SentimentPlot from '@/components/SentimentPlot';
 import type { ReviewScore, DemoApiResponse } from '@/lib/types';
 
@@ -56,6 +57,7 @@ export default function Home() {
         Color indicates model disagreement (blue = agreement, red = high disagreement).
       </p>
       <SentimentPlot reviews={reviews} />
+      <DisagreementPanel reviews={reviews} />
     </main>
   );
 }
