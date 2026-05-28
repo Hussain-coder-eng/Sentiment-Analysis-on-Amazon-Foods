@@ -3,26 +3,19 @@
 Preprocesses Amazon Reviews.csv into public/demo-data.json for demo mode.
 
 Usage:
-    source .venv-scripts/bin/activate
-    python3 scripts/preprocess_demo.py
-
-Environment:
-    HF_TOKEN  (optional) — Hugging Face token for higher rate limits.
-               Omit to use anonymous free-tier access.
+    /Users/hussianaltufayli/Coding/venv/bin/python3 scripts/preprocess_demo.py
 
 Input:  /Users/hussianaltufayli/Coding/amazon-data/Reviews.csv
 Output: public/demo-data.json
 """
 
 import json
-import os
 from typing import Optional
-import time
 from pathlib import Path
 
 import pandas as pd
 from bs4 import BeautifulSoup
-from huggingface_hub import InferenceClient
+from transformers import pipeline
 from tqdm import tqdm
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
@@ -32,9 +25,7 @@ OUTPUT_PATH = Path(__file__).parent.parent / "public" / "demo-data.json"
 HF_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 MAX_REVIEWS = 500
 TEXT_CHAR_CAP = 1000
-GAP_SECONDS = 0.2          # 200ms between HF calls
 BATCH_LOG_INTERVAL = 10    # log progress every N reviews
-RETRY_DELAYS = [1, 2, 4]   # exponential backoff on 503/429 (seconds)
 
 
 # ── HTML stripping ─────────────────────────────────────────────────────────────
@@ -55,40 +46,32 @@ def score_vader(text: str, sia: SentimentIntensityAnalyzer) -> dict:
     }
 
 
-# ── HF Inference ───────────────────────────────────────────────────────────────
-def score_hf(text: str, client: InferenceClient) -> Optional[dict]:
+# ── Local RoBERTa scoring ──────────────────────────────────────────────────────
+def score_local(text: str, clf) -> Optional[dict]:
     """
-    Score one review via HF Inference API. Returns None on unrecoverable error.
-    Labels returned: 'negative', 'neutral', 'positive' (lowercase).
+    Score one review via local transformers pipeline. Returns None on error.
+    Labels: 'negative', 'neutral', 'positive' (from -latest model id2label).
     """
-    for attempt, delay in enumerate([0] + RETRY_DELAYS):
-        if delay:
-            time.sleep(delay)
-        try:
-            results = client.text_classification(text, model=HF_MODEL)
-            # results: list of ClassificationOutput with .label and .score
-            label_map = {r.label.lower(): float(r.score) for r in results}
-            required = {"negative", "neutral", "positive"}
-            if not required.issubset(label_map):
-                print(f"\n  [WARN] HF missing labels: {label_map.keys()}, skipping")
-                return None
-            total = sum(label_map[l] for l in required)
-            if not (0.95 <= total <= 1.05):
-                print(f"\n  [WARN] HF score sum={total:.3f} out of range, skipping")
-                return None
-            return {
-                "positive": label_map["positive"],
-                "neutral":  label_map["neutral"],
-                "negative": label_map["negative"],
-            }
-        except Exception as e:
-            msg = str(e)
-            if attempt < len(RETRY_DELAYS):
-                print(f"\n  [RETRY {attempt+1}] HF error: {msg[:80]}")
-            else:
-                print(f"\n  [SKIP] HF failed after retries: {msg[:80]}")
-                return None
-    return None
+    try:
+        # pipeline returns [[{label, score}, ...]] — one inner list per input
+        results = clf(text, truncation=True, max_length=512)[0]
+        label_map = {r["label"].lower(): float(r["score"]) for r in results}
+        required = {"negative", "neutral", "positive"}
+        if not required.issubset(label_map):
+            print(f"\n  [WARN] missing labels: {list(label_map.keys())}, skipping")
+            return None
+        total = sum(label_map[l] for l in required)
+        if not (0.95 <= total <= 1.05):
+            print(f"\n  [WARN] score sum={total:.3f} out of range, skipping")
+            return None
+        return {
+            "positive": label_map["positive"],
+            "neutral":  label_map["neutral"],
+            "negative": label_map["negative"],
+        }
+    except Exception as e:
+        print(f"\n  [SKIP] scoring failed: {str(e)[:80]}")
+        return None
 
 
 # ── Disagreement ───────────────────────────────────────────────────────────────
@@ -107,8 +90,8 @@ def main() -> None:
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    hf_token = os.environ.get("HF_TOKEN")  # None = anonymous free tier
-    client = InferenceClient(token=hf_token)
+    print(f"Loading model {HF_MODEL} ...")
+    clf = pipeline("text-classification", model=HF_MODEL, top_k=None, device=-1)
     sia = SentimentIntensityAnalyzer()
 
     print(f"Loading {MAX_REVIEWS} reviews from {CSV_PATH} ...")
@@ -136,9 +119,9 @@ def main() -> None:
 
         vader = score_vader(text, sia)
 
-        roberta = score_hf(text, client)
+        roberta = score_local(text, clf)
         if roberta is None:
-            skipped.append((i, "HF scoring failed"))
+            skipped.append((i, "local scoring failed"))
             continue
 
         results.append({
@@ -149,12 +132,8 @@ def main() -> None:
             "disagreement": float(compute_disagreement(vader, roberta)),
         })
 
-        # 200ms gap between HF calls; 1s pause every 10 reviews
-        if i < len(df) - 1:
-            time.sleep(GAP_SECONDS)
-            if (i + 1) % BATCH_LOG_INTERVAL == 0:
-                print(f"\n  [{i+1}/{len(df)}] scored {len(results)} ok, {len(skipped)} skipped")
-                time.sleep(1.0 - GAP_SECONDS)  # extra 800ms to reach 1s total
+        if (i + 1) % BATCH_LOG_INTERVAL == 0:
+            print(f"\n  [{i+1}/{len(df)}] scored {len(results)} ok, {len(skipped)} skipped")
 
     print(f"\nDone: {len(results)} scored, {len(skipped)} skipped")
     if skipped:
