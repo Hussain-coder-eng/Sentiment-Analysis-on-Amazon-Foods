@@ -3,7 +3,12 @@
 Preprocesses Amazon Reviews.csv into public/demo-data.json for demo mode.
 
 Usage:
-    /Users/hussianaltufayli/Coding/venv/bin/python3 scripts/preprocess_demo.py
+    pip install -r requirements-scripts.txt
+    python3 scripts/preprocess_demo.py
+
+Note:
+    CSV_PATH is hardcoded to a local path — edit the constant if re-running
+    on a different machine. The output demo-data.json is committed to git.
 
 Input:  /Users/hussianaltufayli/Coding/amazon-data/Reviews.csv
 Output: public/demo-data.json
