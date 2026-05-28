@@ -27,6 +27,13 @@ env/
 *.tmp
 *.cache
 
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
 # IDE
 .idea/
 .vscode/
@@ -43,3 +50,4 @@ env/
 
 # External data (not committed)
 amazon-data/
+.vercel/
