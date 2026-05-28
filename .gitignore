@@ -14,6 +14,7 @@ dist/
 build/
 *.egg
 .venv/
+.venv-scripts/
 venv/
 env/
 
@@ -39,3 +40,6 @@ env/
 *.pkl
 *.bin
 *.safetensors
+
+# External data (not committed)
+amazon-data/
