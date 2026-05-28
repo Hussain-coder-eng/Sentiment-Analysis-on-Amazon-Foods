@@ -16,6 +16,7 @@ Output: public/demo-data.json
 
 import json
 import os
+from typing import Optional
 import time
 from pathlib import Path
 
@@ -55,7 +56,7 @@ def score_vader(text: str, sia: SentimentIntensityAnalyzer) -> dict:
 
 
 # ── HF Inference ───────────────────────────────────────────────────────────────
-def score_hf(text: str, client: InferenceClient) -> dict | None:
+def score_hf(text: str, client: InferenceClient) -> Optional[dict]:
     """
     Score one review via HF Inference API. Returns None on unrecoverable error.
     Labels returned: 'negative', 'neutral', 'positive' (lowercase).
