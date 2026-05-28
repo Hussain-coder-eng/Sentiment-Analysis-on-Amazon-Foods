@@ -13,8 +13,8 @@ export default function Home() {
   useEffect(() => {
     // Warmup: fire once per browser session, no await (fire-and-forget)
     if (typeof window !== 'undefined' && !sessionStorage.getItem('warmup-done')) {
-      fetch('/api/warmup').catch(() => {}); // silence errors — warmup is best-effort
       sessionStorage.setItem('warmup-done', '1');
+      fetch('/api/warmup').catch(() => {}); // silence errors — warmup is best-effort
     }
 
     // Load demo data

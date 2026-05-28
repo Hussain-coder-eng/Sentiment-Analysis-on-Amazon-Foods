@@ -70,16 +70,17 @@ export default function SentimentPlot({ reviews }: SentimentPlotProps) {
       marker: {
         color: reviews.map((review) => review.disagreement),
         colorscale: [
-          ['0', 'blue'],
-          ['1', 'red'],
+          [0, 'blue'],
+          [0.5, 'yellow'],
+          [1, 'red'],
         ],
         showscale: true,
-        colorbar: { title: 'Disagreement' },
+        colorbar: { title: { text: 'Disagreement' } },
         cmin: 0,
         cmax: 2,
         size: 7,
         opacity: 0.7,
-      } as unknown as PlotData['marker'],
+      },
       hovertemplate:
         '<b>Review</b>: %{customdata[0]}<br>' +
         '<b>Rating</b>: %{customdata[1]}<br>' +
