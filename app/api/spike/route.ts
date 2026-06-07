@@ -90,6 +90,7 @@ async function testCanopy(
       first_review_id: null,
       first_body_preview: null,
       raw_keys: [],
+      raw_body_preview: null,
       error: String(err),
       error_cause_code: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.code ?? null,
       error_cause_message: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.message ?? null,
