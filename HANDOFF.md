@@ -1,95 +1,138 @@
-# Session Handoff — Day 1 Complete
+# Session Handoff — Spike Gate Complete
 
-**Date:** 2026-05-28  
-**Branch:** `main` (Day 1 merged) + `fix/vercel-framework` (open, not merged)  
-**Status:** Day 1 DONE. Vercel deploy attempted, failed — fix in progress.
-
----
-
-## What Was Accomplished
-
-### Day 1 — Full Next.js scaffold (merged to main, 11 commits)
-
-| File | Purpose | Status |
-|------|---------|--------|
-| `next.config.mjs` | Build-time demo-data.json validation (≥100 rows, 10 fields) | ✅ |
-| `lib/types.ts` | ReviewScore, VaderScore, RobertaScore, DemoApiResponse, AnalyzeApiResponse | ✅ |
-| `app/api/demo/route.ts` | GET /api/demo → { reviews, count, asin: null }, cached at module scope | ✅ |
-| `components/SentimentPlot.tsx` | Plotly scatter, dynamic+ssr:false, X=vader.compound, Y=roberta.positive, color=disagreement | ✅ |
-| `components/DisagreementPanel.tsx` | Top 10 reviews sorted by disagreement desc, shadcn Card list | ✅ |
-| `app/page.tsx` | Fetches /api/demo, renders plot + panel, sessionStorage warmup guard | ✅ |
-| `app/api/warmup/route.ts` | HF_API_KEY check→503, KV rate limit 1/min per IP, POST HF 15s timeout | ✅ |
-| `spikes/pipe1-hf.js` | HF API validator (labels + batch test) | ✅ |
-| `spikes/pipe2-canopy.js` | Canopy API validator (reviews shape, field names) | ✅ |
-| shadcn/ui | button, input, card components | ✅ |
-
-### Env setup
-- Vercel project created: `hussain-coder-engs-projects/sentiment-amazon-analyzer`
-- Upstash KV connected, env vars pulled to `.env.development.local`
-- `HF_API_KEY` and `CANOPY_API_KEY` added to `.env.development.local`
-- `.env.development.local` has spaces before `=` signs (e.g. `HF_API_KEY =xxx`) — note when sourcing
+**Date:** 2026-06-07  
+**Branch:** `main` (all work merged)  
+**Status:** Vercel deployed ✅. Spike gate passed ✅. Day 2 unblocked.
 
 ---
 
-## Issues Faced
+## What Was Accomplished (this session)
 
-### Issue 1: Network blocks both external APIs locally
-- `api-inference.huggingface.co` → `ENOTFOUND`
-- `api.canopyapi.co` → `ENOTFOUND`
-- Same network block that hit Step 0 (fixed then by using local transformers)
-- **Spikes cannot be run locally.** Must run on Vercel's network.
+### Fix: Vercel framework detection
+- Added `vercel.json` forcing Next.js — `requirements.txt` in root was causing Python mis-detection
+- Deployed successfully: https://sentiment-amazon-analyzer.vercel.app
+- `/api/demo` verified: returns 500 reviews ✅
 
-### Issue 2: Vercel deploy detected project as Python
-- Error: `"No python entrypoint found"`
-- Root cause: `requirements.txt` in repo root confuses Vercel auto-detection
-- **Fix:** Add `vercel.json` to force Next.js framework
-- Branch `fix/vercel-framework` created but `vercel.json` not yet written/committed
-- **Next session must complete this fix before deploying**
+### Spike Gate — API endpoint investigation (all findings on Vercel network)
 
----
+Both original API endpoints are **dead/NXDOMAIN**. New endpoints confirmed working:
 
-## What's Next
+| API | Old (dead) | New (working) | Notes |
+|-----|-----------|---------------|-------|
+| HuggingFace | `api-inference.huggingface.co` | `router.huggingface.co/hf-inference/models/…` | Deprecated late 2025 |
+| Canopy REST | `api.canopyapi.co/v1/…` | `rest.canopyapi.co/api/amazon/product/reviews` | REST blocked from Vercel IPs (Cloudflare WAF) |
+| Canopy GraphQL | — | `graphql.canopyapi.co/` | **USE THIS** — works from Vercel ✅ |
 
-### Immediate (fix/vercel-framework branch)
+**HF model finding (critical):**
+- Base model `cardiffnlp/twitter-roberta-base-sentiment` → returns `LABEL_0/1/2` (unusable)
+- `-latest` model `cardiffnlp/twitter-roberta-base-sentiment-latest` → returns `positive/neutral/negative` ✅
+- **Must use `-latest` everywhere in the codebase**
 
-1. Create `vercel.json` in repo root:
-   ```json
-   {
-     "framework": "nextjs",
-     "buildCommand": "npm run build",
-     "outputDirectory": ".next",
-     "installCommand": "npm install"
-   }
-   ```
-2. Commit + merge to main
-3. Run `vercel --prod` → should deploy successfully
-4. Verify live URL: hit `/api/demo`, confirm JSON returns 500 reviews
-
-### Spike Gate (run on Vercel network — REQUIRED before Day 2)
-
-After deploy, test from Vercel's network:
-- HF spike: does `cardiffnlp/twitter-roberta-base-sentiment` return `negative/neutral/positive` labels (not `LABEL_0/1/2`)?
-- Canopy spike: does `reviewsPaginated.reviews` return ≥10 reviews? Is `body` field non-empty?
-- Both pass → Day 2 unblocked
-
-Note: HANDOFF.md from Step 0 confirmed that `cardiffnlp/twitter-roberta-base-sentiment-latest` returns named labels. The design spec uses the base model (without `-latest`). Verify which model URL returns named labels on Vercel's network — may need to switch to `-latest` in `/api/warmup` and `/api/analyze`.
-
-### Day 2 (after spike gate passes)
-
-Per design spec build order:
-5. `/api/analyze` skeleton: ASIN validation + KV fail-closed + cache check + rate limit + inflight lock + cache re-check + monthly circuit breaker
-6. Wire Canopy fetch + dedup + VADER + HF sequential scoring + cache result
-7. ASIN input form → live scatter plot + disagreement panel
-
-**Environment vars still needed for Day 2:**
+**Canopy GraphQL response shape:**
 ```
-CANOPY_API_KEY=xxx    # already in .env.development.local (but API blocked locally)
-HF_API_KEY=hf_xxx    # already in .env.development.local (but API blocked locally)
-KV_REST_API_URL=xxx  # already set via Vercel KV
-KV_REST_API_TOKEN=xxx # already set via Vercel KV
+POST https://graphql.canopyapi.co/
+Header: API-KEY: <key>
+Body: { "query": "{ amazonProduct(input:{asin:\"ASIN\",domain:US}){ topReviews { id body rating verifiedPurchase } } }" }
+
+Response: data.data.amazonProduct.topReviews[]  (8 reviews max)
+Fields: id, title, body, imageUrls, videos, rating, helpfulVotes, verifiedPurchase, reviewer
 ```
 
-**Key files:**
+Note: paginated endpoint gone — only `topReviews` (8 per ASIN) available.
+
+### Files updated
+| File | Change |
+|------|--------|
+| `vercel.json` | Added (forces Next.js framework) |
+| `app/api/warmup/route.ts` | HF URL → new router, model → `-latest` |
+| `spikes/pipe1-hf.js` | Updated URL + model |
+| `spikes/pipe2-canopy.js` | Updated to `rest.canopyapi.co` + `topReviews` shape |
+
+### Env vars — current Vercel state
+```
+HF_API_KEY          = hf_q...   (Production) ← new valid token added this session
+CANOPY_API_KEY      = 2fc6...   (Production) ← was already set
+KV_REST_API_URL     = set       (Production, Preview)
+KV_REST_API_TOKEN   = set       (Production, Preview)
+KV_REST_API_READ_ONLY_TOKEN = set
+KV_URL / REDIS_URL  = set
+```
+
+Local: `.env.development.local` has spaces before `=` signs — be careful when sourcing.  
+Refresh local env: `vercel env pull .env.development.local`
+
+---
+
+## What's Next — Day 2
+
+### Step 5: `/api/analyze` skeleton
+
+Per design spec (`docs/superpowers/specs/2026-05-25-amazon-sentiment-web-app-design.md` § "Build Order"):
+
+```
+POST /api/analyze { asin: string }
+
+Flow:
+1. Validate ASIN (regex: /^[A-Z0-9]{10}$/)
+2. KV fail-closed check (if KV down → 503)
+3. Cache check → return cached if hit
+4. Rate limit per IP (1 req/min, KV bucket)
+5. Inflight lock (atomic NX SET 90s TTL — prevent duplicate Canopy calls)
+6. Cache re-check after acquiring lock
+7. Monthly circuit breaker (KV counter, cap spend)
+8. Canopy GraphQL fetch → extract topReviews (8 reviews)
+9. Dedup by SHA-1(body) fallback if id missing
+10. VADER scoring per review
+11. HF batch scoring via router.huggingface.co (-latest model)
+12. Compute disagreement = |vader_compound - (roberta_positive - roberta_negative)|
+13. Cache result with TTL
+14. Return { reviews: ReviewScore[], count, asin }
+```
+
+**Canopy call for analyze route:**
+```typescript
+const res = await fetch('https://graphql.canopyapi.co/', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'API-KEY': process.env.CANOPY_API_KEY! },
+  body: JSON.stringify({ query: `{ amazonProduct(input:{asin:"${asin}",domain:US}){ topReviews { id body rating verifiedPurchase } } }` }),
+  signal: AbortSignal.timeout(20_000),
+});
+const data = await res.json();
+const reviews = data?.data?.amazonProduct?.topReviews ?? [];
+```
+
+**HF call for analyze route:**
+```typescript
+const hfRes = await fetch(
+  'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest',
+  {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.HF_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs: reviews.map(r => r.body) }),
+    signal: AbortSignal.timeout(60_000),
+  }
+);
+// Response: [[{label, score}, ...], ...]  — outer array = per review, inner = per label
+```
+
+**KV client pattern (always use this, NOT Redis.fromEnv()):**
+```typescript
+new Redis({ url: process.env.KV_REST_API_URL!, token: process.env.KV_REST_API_TOKEN! })
+```
+
+### Step 6: Wire frontend
+- ASIN input form on `app/page.tsx`
+- POST to `/api/analyze` on submit
+- Render live scatter plot + disagreement panel with result
+
+### Branch naming
+- `feat/day2-analyze-api` for steps 5–6
+- Review + merge when done
+
+---
+
+## Key Files Reference
 - Design spec: `docs/superpowers/specs/2026-05-25-amazon-sentiment-web-app-design.md`
-- Day 2 build order: design spec § "Build Order" → Day 2 steps 5-7
-- KV client pattern: `new Redis({ url: process.env.KV_REST_API_URL!, token: process.env.KV_REST_API_TOKEN! })` (NOT `Redis.fromEnv()`)
+- Types: `lib/types.ts` (ReviewScore, VaderScore, RobertaScore, DemoApiResponse, AnalyzeApiResponse)
+- Demo route (reference for cache pattern): `app/api/demo/route.ts`
+- Warmup route (reference for KV + HF pattern): `app/api/warmup/route.ts`
