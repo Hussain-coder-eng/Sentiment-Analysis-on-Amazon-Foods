@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 // Temporary spike validation route — delete after spike gate passes.
 
 const HF_BASE_URL =
-  "https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment";
+  "https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment";
 const HF_LATEST_URL =
-  "https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest";
+  "https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest";
 const CANOPY_URL =
-  "https://api.canopyapi.co/v1/amazon/product/reviews?asin=B07FZ8S74R&domain=US&page=1";
+  "https://rest.canopyapi.co/v1/amazon/product/reviews?asin=B07FZ8S74R&domain=US&page=1";
 const HF_INPUT = { inputs: "I love this product" };
 
 function extractHfLabels(raw: unknown): string[] | null {
