@@ -58,16 +58,20 @@ async function testCanopy(
   first_review_id: string | null;
   first_body_preview: string | null;
   raw_keys: string[];
+  raw_body_preview: string | null;
   error?: string;
   error_cause_code?: string | null;
   error_cause_message?: string | null;
 }> {
   try {
     const res = await fetch(CANOPY_URL, {
-      headers: { "API-KEY": apiKey },
+      headers: { "API-KEY": apiKey, "User-Agent": "Mozilla/5.0" },
       signal: AbortSignal.timeout(20_000),
     });
-    const raw: unknown = await res.json().catch(() => null);
+    const rawText = await res.text().catch(() => "");
+    let raw: unknown = null;
+    try { raw = JSON.parse(rawText); } catch {}
+    const raw_body_preview = res.status !== 200 ? rawText.slice(0, 300) : null;
     const reviews: Array<{ id?: string; body?: string }> =
       (raw as { data?: { amazonProduct?: { topReviews?: Array<{ id?: string; body?: string }> } } })
         ?.data?.amazonProduct?.topReviews ?? [];
@@ -77,6 +81,7 @@ async function testCanopy(
       first_review_id: reviews[0]?.id ?? null,
       first_body_preview: reviews[0]?.body?.slice(0, 100) ?? null,
       raw_keys: raw && typeof raw === "object" ? Object.keys(raw as object) : [],
+      raw_body_preview,
     };
   } catch (err) {
     return {
