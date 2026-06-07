@@ -68,12 +68,9 @@ async function testCanopy(
       signal: AbortSignal.timeout(20_000),
     });
     const raw: unknown = await res.json().catch(() => null);
-    const data = (raw as Record<string, unknown> | null)?.data as
-      | Record<string, unknown>
-      | undefined;
     const reviews: Array<{ id?: string; body?: string }> =
-      (data?.reviewsPaginated as Record<string, unknown> | undefined)
-        ?.reviews as Array<{ id?: string; body?: string }> ?? [];
+      (raw as { data?: { amazonProduct?: { topReviews?: Array<{ id?: string; body?: string }> } } })
+        ?.data?.amazonProduct?.topReviews ?? [];
     return {
       status: res.status,
       reviews_count: reviews.length,
