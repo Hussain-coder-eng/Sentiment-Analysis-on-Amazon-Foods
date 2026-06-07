@@ -98,6 +98,49 @@ async function testCanopy(
   }
 }
 
+const CANOPY_GRAPHQL_URL = "https://graphql.canopyapi.co/";
+const CANOPY_GRAPHQL_QUERY =
+  '{ amazonProduct(input:{asin:"B07FZ8S74R",domain:US}){ topReviews { id body rating verifiedPurchase } } }';
+
+async function testCanopyGraphQL(
+  apiKey: string
+): Promise<{ status: number; reviews_count: number | null; first_id: string | null; first_body_preview: string | null; raw_body_preview: string | null; error?: string }> {
+  try {
+    const res = await fetch(CANOPY_GRAPHQL_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "API-KEY": apiKey,
+        "User-Agent": "Mozilla/5.0",
+      },
+      body: JSON.stringify({ query: CANOPY_GRAPHQL_QUERY }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    const rawText = await res.text().catch(() => "");
+    let data: unknown = null;
+    try { data = JSON.parse(rawText); } catch {}
+    const reviews: Array<{ id?: string; body?: string }> =
+      (data as { data?: { amazonProduct?: { topReviews?: Array<{ id?: string; body?: string }> } } })
+        ?.data?.amazonProduct?.topReviews ?? [];
+    return {
+      status: res.status,
+      reviews_count: reviews.length,
+      first_id: reviews[0]?.id ?? null,
+      first_body_preview: reviews[0]?.body?.slice(0, 100) ?? null,
+      raw_body_preview: res.status !== 200 ? rawText.slice(0, 300) : null,
+    };
+  } catch (err) {
+    return {
+      status: 0,
+      reviews_count: null,
+      first_id: null,
+      first_body_preview: null,
+      raw_body_preview: null,
+      error: String(err),
+    };
+  }
+}
+
 async function testControl(): Promise<{ status: number; ok: boolean; error?: string; error_cause_code?: string | null; error_cause_message?: string | null }> {
   try {
     const res = await fetch('https://httpbin.org/get', { signal: AbortSignal.timeout(10_000) });
@@ -117,11 +160,12 @@ export async function GET() {
   const hfToken = process.env.HF_API_KEY ?? "";
   const canopyKey = process.env.CANOPY_API_KEY ?? "";
 
-  const [hfBaseResult, hfLatestResult, canopyResult, controlResult] = await Promise.allSettled([
+  const [hfBaseResult, hfLatestResult, canopyResult, controlResult, canopyGraphqlResult] = await Promise.allSettled([
     testHf(HF_BASE_URL, hfToken),
     testHf(HF_LATEST_URL, hfToken),
     testCanopy(canopyKey),
     testControl(),
+    testCanopyGraphQL(canopyKey),
   ]);
 
   return NextResponse.json({
@@ -148,6 +192,10 @@ export async function GET() {
       controlResult.status === "fulfilled"
         ? controlResult.value
         : { status: 0, ok: false, error: String(controlResult.reason) },
+    canopy_graphql:
+      canopyGraphqlResult.status === "fulfilled"
+        ? canopyGraphqlResult.value
+        : { status: 0, reviews_count: null, first_id: null, first_body_preview: null, raw_body_preview: null, error: String(canopyGraphqlResult.reason) },
     env_debug: {
       HF_API_KEY_set: !!process.env.HF_API_KEY,
       HF_API_KEY_prefix: process.env.HF_API_KEY?.slice(0, 4) ?? "unset",
