@@ -25,7 +25,7 @@ function extractHfLabels(raw: unknown): string[] | null {
 async function testHf(
   url: string,
   token: string
-): Promise<{ status: number; labels: string[] | null; raw: unknown; error?: string }> {
+): Promise<{ status: number; labels: string[] | null; raw: unknown; error?: string; error_cause_code?: string | null; error_cause_message?: string | null }> {
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -39,7 +39,14 @@ async function testHf(
     const raw: unknown = await res.json().catch(() => null);
     return { status: res.status, labels: extractHfLabels(raw), raw };
   } catch (err) {
-    return { status: 0, labels: null, raw: null, error: String(err) };
+    return {
+      status: 0,
+      labels: null,
+      raw: null,
+      error: String(err),
+      error_cause_code: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.code ?? null,
+      error_cause_message: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.message ?? null,
+    };
   }
 }
 
@@ -52,6 +59,8 @@ async function testCanopy(
   first_body_preview: string | null;
   raw_keys: string[];
   error?: string;
+  error_cause_code?: string | null;
+  error_cause_message?: string | null;
 }> {
   try {
     const res = await fetch(CANOPY_URL, {
@@ -80,6 +89,23 @@ async function testCanopy(
       first_body_preview: null,
       raw_keys: [],
       error: String(err),
+      error_cause_code: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.code ?? null,
+      error_cause_message: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.message ?? null,
+    };
+  }
+}
+
+async function testControl(): Promise<{ status: number; ok: boolean; error?: string; error_cause_code?: string | null; error_cause_message?: string | null }> {
+  try {
+    const res = await fetch('https://httpbin.org/get', { signal: AbortSignal.timeout(10_000) });
+    return { status: res.status, ok: res.ok };
+  } catch (err) {
+    return {
+      status: 0,
+      ok: false,
+      error: String(err),
+      error_cause_code: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.code ?? null,
+      error_cause_message: (err as NodeJS.ErrnoException & { cause?: NodeJS.ErrnoException })?.cause?.message ?? null,
     };
   }
 }
@@ -88,10 +114,11 @@ export async function GET() {
   const hfToken = process.env.HF_API_KEY ?? "";
   const canopyKey = process.env.CANOPY_API_KEY ?? "";
 
-  const [hfBaseResult, hfLatestResult, canopyResult] = await Promise.allSettled([
+  const [hfBaseResult, hfLatestResult, canopyResult, controlResult] = await Promise.allSettled([
     testHf(HF_BASE_URL, hfToken),
     testHf(HF_LATEST_URL, hfToken),
     testCanopy(canopyKey),
+    testControl(),
   ]);
 
   return NextResponse.json({
@@ -114,5 +141,9 @@ export async function GET() {
             raw_keys: [],
             error: String(canopyResult.reason),
           },
+    control:
+      controlResult.status === "fulfilled"
+        ? controlResult.value
+        : { status: 0, ok: false, error: String(controlResult.reason) },
   });
 }
