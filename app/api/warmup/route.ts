@@ -42,7 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   let hfRes: Response;
   try {
     hfRes = await fetch(
-      'https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment',
+      'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest',
       {
         method: 'POST',
         headers: {
