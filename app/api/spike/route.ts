@@ -142,5 +142,11 @@ export async function GET() {
       controlResult.status === "fulfilled"
         ? controlResult.value
         : { status: 0, ok: false, error: String(controlResult.reason) },
+    env_debug: {
+      HF_API_KEY_set: !!process.env.HF_API_KEY,
+      HF_API_KEY_prefix: process.env.HF_API_KEY?.slice(0, 4) ?? "unset",
+      CANOPY_API_KEY_set: !!process.env.CANOPY_API_KEY,
+      CANOPY_API_KEY_prefix: process.env.CANOPY_API_KEY?.slice(0, 4) ?? "unset",
+    },
   });
 }
