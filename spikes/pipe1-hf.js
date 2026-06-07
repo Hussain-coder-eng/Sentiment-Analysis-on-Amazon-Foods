@@ -1,9 +1,9 @@
-// Spike: validate HF Inference API for cardiffnlp/twitter-roberta-base-sentiment
+// Spike: validate HF Inference API for cardiffnlp/twitter-roberta-base-sentiment-latest
 // Run with: HF_API_KEY=hf_xxx node spikes/pipe1-hf.js
-// Purpose: (a) confirm labels are 'negative'/'neutral'/'positive' (not LABEL_0/1/2)
-//          (b) test if array `inputs` works (batch mode) vs single string
+// New endpoint: router.huggingface.co (old api-inference.huggingface.co deprecated/NXDOMAIN)
+// Must use -latest model: base model returns LABEL_0/1/2, -latest returns named labels
 
-const HF_URL = 'https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment';
+const HF_URL = 'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest';
 const API_KEY = process.env.HF_API_KEY;
 
 if (!API_KEY) {
@@ -19,7 +19,7 @@ async function callHF(inputs) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ inputs }),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(30000),
   });
   console.log(`Status: ${res.status}`);
   const data = await res.json();
