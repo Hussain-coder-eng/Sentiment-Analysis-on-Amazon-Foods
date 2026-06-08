@@ -129,6 +129,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     let reviews: Review[];
+    let scored: ReviewScore[] | undefined;
 
     try {
       // Step 9: Canopy GraphQL fetch
@@ -229,7 +230,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           signal: AbortSignal.timeout(8_000),
         });
         if (!hfRes.ok) throw new Error(`hf_${hfRes.status}`);
-        const labels: { label: string; score: number }[] = await hfRes.json();
+        const rawHfResponse: unknown = await hfRes.json();
+        const labels: { label: string; score: number }[] =
+          Array.isArray(rawHfResponse) && Array.isArray((rawHfResponse as unknown[])[0])
+            ? ((rawHfResponse as unknown[][])[0] as { label: string; score: number }[])
+            : (rawHfResponse as { label: string; score: number }[]);
+        if (!Array.isArray(labels)) throw new Error('hf_unexpected_shape');
         for (const l of ['negative', 'neutral', 'positive']) {
           const entry = labels.find((x) => x.label === l);
           if (!entry || !Number.isFinite(entry.score)) {
@@ -248,7 +254,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
 
       // Step 10.5: Build ReviewScore[]
-      const scored: ReviewScore[] = reviews.map((r, i) => {
+      scored = reviews.map((r, i) => {
         const v = vaderScores[i];
         const rob = robertaScores[i];
         const disagreement = Math.abs(v.compound - (rob.positive - rob.negative));
@@ -263,19 +269,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           !Number.isFinite(s.roberta.positive) ||
           !Number.isFinite(s.disagreement)
         ) {
-          throw new Error('scoring_length_mismatch');
+          throw new Error('scoring_value_invalid');
         }
       }
-
-      // Step 12: Cache success
-      await kv.set(scoredKey, JSON.stringify(scored), { ex: 86400 });
-
-      // Step 14: Return
-      return NextResponse.json({
-        reviews: scored,
-        count: scored.length,
-        asin: normalizedAsin,
-      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const ttl = getFailureTtl(message);
@@ -289,6 +285,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         { status: 500 },
       );
     }
+
+    // Step 12: Cache success (best-effort — Redis failure must not poison failure cache)
+    try {
+      await kv.set(scoredKey, JSON.stringify(scored!), { ex: 86400 });
+    } catch (e) {
+      console.error('cache_write_failed', e);
+    }
+
+    // Step 14: Return
+    return NextResponse.json({
+      reviews: scored!,
+      count: scored!.length,
+      asin: normalizedAsin,
+    });
   } finally {
     // Step 13: Release inflight lock
     try {
