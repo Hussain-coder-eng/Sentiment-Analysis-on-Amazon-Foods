@@ -28,13 +28,6 @@ function getFailureTtl(errorMessage: string): number {
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // Step 1: Validate ASIN
-  const { searchParams } = new URL(request.url);
-  const normalizedAsin = (searchParams.get('asin') ?? '').trim().toUpperCase();
-  if (!/^[A-Z0-9]{10}$/.test(normalizedAsin)) {
-    return NextResponse.json({ error: 'Invalid ASIN' }, { status: 400 });
-  }
-
   // Env checks at startup (all four required)
   if (!process.env.HF_API_KEY) {
     return NextResponse.json({ error: 'Service misconfigured' }, { status: 503 });
@@ -55,6 +48,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
   } catch {
     return NextResponse.json({ error: 'Service misconfigured' }, { status: 503 });
+  }
+
+  // Step 1: Validate ASIN
+  const { searchParams } = new URL(request.url);
+  const normalizedAsin = (searchParams.get('asin') ?? '').trim().toUpperCase();
+  if (!/^[A-Z0-9]{10}$/.test(normalizedAsin)) {
+    return NextResponse.json({ error: 'Invalid ASIN' }, { status: 400 });
   }
 
   const scoredKey = `asin:v1:${normalizedAsin}:scored`;
