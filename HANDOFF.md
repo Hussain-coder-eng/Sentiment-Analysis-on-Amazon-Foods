@@ -1,12 +1,12 @@
-# Session Handoff — Spike Gate Complete
+# Session Handoff — Day 2 In Progress
 
-**Date:** 2026-06-07  
-**Branch:** `main` (all work merged)  
-**Status:** Vercel deployed ✅. Spike gate passed ✅. Day 2 unblocked.
+**Date:** 2026-06-08  
+**Branch:** `feat/day2-analyze-api` (2 commits ahead of main, NOT merged)  
+**Status:** `/api/analyze` implemented + spec-compliant. Code quality review open — 1 CRITICAL + 1 IMPORTANT unresolved.
 
 ---
 
-## What Was Accomplished (this session)
+## What Was Accomplished (previous session — spike gate)
 
 ### Fix: Vercel framework detection
 - Added `vercel.json` forcing Next.js — `requirements.txt` in root was causing Python mis-detection
@@ -40,14 +40,6 @@ Fields: id, title, body, imageUrls, videos, rating, helpfulVotes, verifiedPurcha
 
 Note: paginated endpoint gone — only `topReviews` (8 per ASIN) available.
 
-### Files updated
-| File | Change |
-|------|--------|
-| `vercel.json` | Added (forces Next.js framework) |
-| `app/api/warmup/route.ts` | HF URL → new router, model → `-latest` |
-| `spikes/pipe1-hf.js` | Updated URL + model |
-| `spikes/pipe2-canopy.js` | Updated to `rest.canopyapi.co` + `topReviews` shape |
-
 ### Env vars — current Vercel state
 ```
 HF_API_KEY          = hf_q...   (Production) ← new valid token added this session
@@ -63,76 +55,114 @@ Refresh local env: `vercel env pull .env.development.local`
 
 ---
 
-## What's Next — Day 2
+## What Was Accomplished (this session — Day 2 start)
 
-### Step 5: `/api/analyze` skeleton
+### Branch created: `feat/day2-analyze-api`
 
-Per design spec (`docs/superpowers/specs/2026-05-25-amazon-sentiment-web-app-design.md` § "Build Order"):
+### `app/api/analyze/route.ts` — implemented and spec-compliant
 
-```
-POST /api/analyze { asin: string }
+GET endpoint implementing the full 14-step flow (spec-validated):
 
-Flow:
-1. Validate ASIN (regex: /^[A-Z0-9]{10}$/)
-2. KV fail-closed check (if KV down → 503)
-3. Cache check → return cached if hit
-4. Rate limit per IP (1 req/min, KV bucket)
-5. Inflight lock (atomic NX SET 90s TTL — prevent duplicate Canopy calls)
-6. Cache re-check after acquiring lock
-7. Monthly circuit breaker (KV counter, cap spend)
-8. Canopy GraphQL fetch → extract topReviews (8 reviews)
-9. Dedup by SHA-1(body) fallback if id missing
-10. VADER scoring per review
-11. HF batch scoring via router.huggingface.co (-latest model)
-12. Compute disagreement = |vader_compound - (roberta_positive - roberta_negative)|
-13. Cache result with TTL
-14. Return { reviews: ReviewScore[], count, asin }
-```
+1. Env checks → 503 (all 4 vars required before any logic)
+2. KV init fail-closed → 503
+3. ASIN validation regex `/^[A-Z0-9]{10}$/` → 400
+4. Cache hit check (`asin:v1:<ASIN>:scored`) → return immediately, bypasses rate limit
+5. Failure cache check (`asin:v1:<ASIN>:failed`) → return cached error
+6. Per-IP rate limit: `rate:<IP>:<hourBucket>`, >5/hour → 429
+7. Inflight lock: `kv.set(lockKey, '1', { nx:true, ex:90 })` → 202 if locked
+8. Cache re-check inside lock
+9. Monthly circuit breaker: `quota:canopy:YYYY-MM`, >90 → 503
+10. Canopy GraphQL fetch → `data.data.amazonProduct.topReviews` (8 max, no pagination)
+11. Normalize + dedup (sanitize-html, sha1 dedupKey), count gate <5 → 422
+12. VADER sync scoring (vader-sentiment npm)
+13. HF sequential scoring (one string per POST, 100ms gap)
+14. Disagreement = `|vader.compound - (roberta.positive - roberta.negative)|`
+15. Post-scoring validation, cache success 24h, return `{ reviews, count, asin }`
 
-**Canopy call for analyze route:**
+Lock released in `finally` block on all paths. `maxDuration = 60` set.
+
+**Key API patterns (use these exactly):**
+
 ```typescript
-const res = await fetch('https://graphql.canopyapi.co/', {
+// Canopy GraphQL
+const canopyRes = await fetch('https://graphql.canopyapi.co/', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'API-KEY': process.env.CANOPY_API_KEY! },
-  body: JSON.stringify({ query: `{ amazonProduct(input:{asin:"${asin}",domain:US}){ topReviews { id body rating verifiedPurchase } } }` }),
+  body: JSON.stringify({ query: `{ amazonProduct(input:{asin:"${normalizedAsin}",domain:US}){ topReviews { id body rating verifiedPurchase } } }` }),
   signal: AbortSignal.timeout(20_000),
 });
-const data = await res.json();
-const reviews = data?.data?.amazonProduct?.topReviews ?? [];
-```
+const raw = responseJson?.data?.amazonProduct?.topReviews ?? [];
 
-**HF call for analyze route:**
-```typescript
+// HF (sequential, single string per call)
 const hfRes = await fetch(
   'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest',
-  {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.HF_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inputs: reviews.map(r => r.body) }),
-    signal: AbortSignal.timeout(60_000),
-  }
+  { method: 'POST', headers: { Authorization: `Bearer ${process.env.HF_API_KEY!}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inputs: reviewText }), signal: AbortSignal.timeout(8_000) }
 );
-// Response: [[{label, score}, ...], ...]  — outer array = per review, inner = per label
-```
 
-**KV client pattern (always use this, NOT Redis.fromEnv()):**
-```typescript
+// KV client (always this pattern)
 new Redis({ url: process.env.KV_REST_API_URL!, token: process.env.KV_REST_API_TOKEN! })
 ```
 
-### Step 6: Wire frontend
-- ASIN input form on `app/page.tsx`
-- POST to `/api/analyze` on submit
-- Render live scatter plot + disagreement panel with result
+### Code quality review open issues (must fix before merge)
 
-### Branch naming
-- `feat/day2-analyze-api` for steps 5–6
-- Review + merge when done
+**CRITICAL — HF response shape defensive unwrap missing:**
+- HF may return `[[{label,score},…]]` (nested) instead of `[{label,score},…]` (flat)
+- Current code assumes flat → all label lookups fail if nested → poisons failure cache 120s
+- Fix: add defensive unwrap after `hfRes.json()`:
+  ```typescript
+  const rawHfResponse: unknown = await hfRes.json();
+  const labels: { label: string; score: number }[] =
+    Array.isArray(rawHfResponse) && Array.isArray((rawHfResponse as unknown[])[0])
+      ? ((rawHfResponse as unknown[][])[0] as { label: string; score: number }[])
+      : (rawHfResponse as { label: string; score: number }[]);
+  if (!Array.isArray(labels)) throw new Error('hf_unexpected_shape');
+  ```
+
+**IMPORTANT — Success cache write failure poisons failure cache:**
+- Step 12 `kv.set(scoredKey, ...)` is inside the inner try/catch
+- If Redis write fails after scoring succeeds → inner catch writes 500 to `failKey` → caller gets 500 + retries poisoned for 120s
+- Fix: move step 12 + step 14 return outside the inner try/catch; wrap step 12 in its own best-effort try/catch that logs and continues
+
+**MINOR (can defer to Day 3):**
+- Rate limit counter increments on 202 (lock-miss) responses — low impact
+- `scoring_length_mismatch` error string reused for value-invalid case — use `scoring_value_invalid` instead
+- `'unknown'` IP fallback collapses headerless clients into shared bucket — document only
 
 ---
 
-## Key Files Reference
-- Design spec: `docs/superpowers/specs/2026-05-25-amazon-sentiment-web-app-design.md`
-- Types: `lib/types.ts` (ReviewScore, VaderScore, RobertaScore, DemoApiResponse, AnalyzeApiResponse)
-- Demo route (reference for cache pattern): `app/api/demo/route.ts`
-- Warmup route (reference for KV + HF pattern): `app/api/warmup/route.ts`
+## What's Next
+
+### Immediate: fix CRITICAL + IMPORTANT before merge
+
+```
+1. Fix HF defensive unwrap (nested array)
+2. Fix success cache write → move outside inner try/catch (best-effort)
+3. Fix scoring_value_invalid error string (minor, do with the above)
+4. tsc --noEmit clean
+5. Re-run code quality review → APPROVE
+6. Task 2: Wire ASIN input on app/page.tsx
+7. Code review → merge feat/day2-analyze-api to main
+```
+
+### Task 2: Wire frontend (app/page.tsx)
+
+- Add ASIN input form (text input + submit button, disable on submit)
+- GET `/api/analyze?asin=<ASIN>` on submit
+- Replace scatter plot + disagreement panel with live results
+- Loading state: "Waking up the ML model — this takes ~10-30s on first use."
+- Error display (user-friendly messages from API error responses)
+- "Reset to demo" button → reloads demo data from `/api/demo`
+- Keep warmup fire-and-forget on page load (already present)
+
+### Design spec reference
+Full spec: `docs/superpowers/specs/2026-05-25-amazon-sentiment-web-app-design.md`
+
+Key types: `lib/types.ts` — `ReviewScore`, `AnalyzeApiResponse`  
+Reference implementations: `app/api/demo/route.ts`, `app/api/warmup/route.ts`
+
+### Day 3 (after merge)
+- All error states + "Reset to demo" button polish
+- Post-scoring validation hardening
+- Pre-populate cache with 5-10 notable ASINs
+- Deploy + get live URL
