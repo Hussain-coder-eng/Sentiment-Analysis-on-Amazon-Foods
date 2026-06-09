@@ -3,21 +3,24 @@
 import { useEffect, useState } from 'react';
 import DisagreementPanel from '@/components/DisagreementPanel';
 import SentimentPlot from '@/components/SentimentPlot';
-import type { ReviewScore, DemoApiResponse } from '@/lib/types';
+import type { ReviewScore, DemoApiResponse, AnalyzeApiResponse } from '@/lib/types';
 
 export default function Home() {
   const [reviews, setReviews] = useState<ReviewScore[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [demoLoading, setDemoLoading] = useState(true);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [asinInput, setAsinInput] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
-    // Warmup: fire once per browser session, no await (fire-and-forget)
+    // Warmup: fire once per browser session, fire-and-forget
     if (typeof window !== 'undefined' && !sessionStorage.getItem('warmup-done')) {
       sessionStorage.setItem('warmup-done', '1');
-      fetch('/api/warmup').catch(() => {}); // silence errors — warmup is best-effort
+      fetch('/api/warmup').catch(() => {});
     }
 
-    // Load demo data
     fetch('/api/demo')
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -25,15 +28,59 @@ export default function Home() {
       })
       .then(data => {
         setReviews(data.reviews);
-        setLoading(false);
+        setDemoLoading(false);
       })
       .catch(err => {
-        setError(err.message ?? 'Failed to load demo data');
-        setLoading(false);
+        setDemoError(err.message ?? 'Failed to load demo data');
+        setDemoLoading(false);
       });
   }, []);
 
-  if (loading) {
+  async function handleAnalyze(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = asinInput.trim().toUpperCase();
+    if (!/^[A-Z0-9]{10}$/.test(trimmed)) {
+      setAnalyzeError('Invalid ASIN — must be 10 uppercase letters/digits (e.g. B001E4KFG0).');
+      return;
+    }
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      const res = await fetch(`/api/analyze?asin=${trimmed}`);
+      const data = await res.json() as { error?: string } | AnalyzeApiResponse;
+      if (!res.ok) {
+        setAnalyzeError((data as { error?: string }).error ?? `Request failed (${res.status})`);
+      } else {
+        setReviews((data as AnalyzeApiResponse).reviews);
+        setIsLive(true);
+      }
+    } catch {
+      setAnalyzeError('Network error — please try again.');
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  function handleResetDemo() {
+    setAnalyzeError(null);
+    setIsLive(false);
+    setDemoLoading(true);
+    fetch('/api/demo')
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json() as Promise<DemoApiResponse>;
+      })
+      .then(data => {
+        setReviews(data.reviews);
+        setDemoLoading(false);
+      })
+      .catch(err => {
+        setDemoError(err.message ?? 'Failed to load demo data');
+        setDemoLoading(false);
+      });
+  }
+
+  if (demoLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="text-gray-500 text-lg">Loading demo data...</p>
@@ -41,10 +88,10 @@ export default function Home() {
     );
   }
 
-  if (error) {
+  if (demoError) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-red-500 text-lg">Error: {error}</p>
+        <p className="text-red-500 text-lg">Error: {demoError}</p>
       </main>
     );
   }
@@ -56,8 +103,52 @@ export default function Home() {
         Dual-model sentiment analysis: VADER vs RoBERTa on {reviews.length} Amazon food reviews.
         Color indicates model disagreement (blue = agreement, red = high disagreement).
       </p>
-      <SentimentPlot reviews={reviews} />
-      <DisagreementPanel reviews={reviews} />
+
+      {/* ASIN input form */}
+      <form onSubmit={handleAnalyze} className="flex gap-2 mb-4">
+        <input
+          type="text"
+          value={asinInput}
+          onChange={e => setAsinInput(e.target.value)}
+          placeholder="Enter Amazon ASIN (e.g. B001E4KFG0)"
+          disabled={analyzing}
+          className="border rounded px-3 py-2 w-72 text-sm disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={analyzing || asinInput.trim().length === 0}
+          className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+        >
+          {analyzing ? 'Analyzing…' : 'Analyze'}
+        </button>
+        {(isLive || analyzeError) && !analyzing && (
+          <button
+            type="button"
+            onClick={handleResetDemo}
+            className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50"
+          >
+            Reset to demo
+          </button>
+        )}
+      </form>
+
+      {/* Status messages */}
+      {analyzing && (
+        <p className="text-gray-500 text-sm mb-4">
+          Waking up the ML model — this takes ~10-30s on first use.
+        </p>
+      )}
+      {analyzeError && (
+        <p className="text-red-500 text-sm mb-4">{analyzeError}</p>
+      )}
+
+      {/* Charts — show demo data while analyzing, replace with live results on success */}
+      {!analyzing && (
+        <>
+          <SentimentPlot reviews={reviews} />
+          <DisagreementPanel reviews={reviews} />
+        </>
+      )}
     </main>
   );
 }
