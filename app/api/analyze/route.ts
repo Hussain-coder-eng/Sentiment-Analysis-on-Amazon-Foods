@@ -24,7 +24,6 @@ function getFailureTtl(errorMessage: string): number {
   if (errorMessage.includes('canopy_401') || errorMessage.includes('canopy_403')) return 1800;
   if (errorMessage.includes('canopy_5') || errorMessage.includes('timeout')) return 120;
   if (errorMessage.includes('hf_')) return 120;
-  if (errorMessage.includes('scoring_length_mismatch')) return 60;
   return 120;
 }
 
@@ -99,7 +98,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const locked = await kv.set(lockKey, '1', { nx: true, ex: 90 });
   if (!locked) {
     return NextResponse.json(
-      { error: 'Analysis already in progress for this product. Retry in 30s.' },
+      { error: 'Analysis already in progress for this product. Retry in 90s.' },
       { status: 202 },
     );
   }
@@ -141,7 +140,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           'API-KEY': process.env.CANOPY_API_KEY!,
         },
         body: JSON.stringify({
-          query: `{ amazonProduct(input:{asin:"${normalizedAsin}",domain:US}){ topReviews { id body rating verifiedPurchase } } }`,
+          query: `{ amazonProduct(input:{asin:"${normalizedAsin}",domain:US}){ topReviews { id body rating } } }`,
         }),
         signal: AbortSignal.timeout(20_000),
       });
