@@ -64,7 +64,6 @@ export default function Home() {
   function handleResetDemo() {
     setAnalyzeError(null);
     setIsLive(false);
-    setDemoLoading(true);
     fetch('/api/demo')
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -142,7 +141,7 @@ export default function Home() {
         <p className="text-red-500 text-sm mb-4">{analyzeError}</p>
       )}
 
-      {/* Charts — show demo data while analyzing, replace with live results on success */}
+      {/* Charts — hidden while analysis is in flight, shown for both demo and live results */}
       {!analyzing && (
         <>
           <SentimentPlot reviews={reviews} />
