@@ -7,7 +7,7 @@ import type { ReviewScore, VaderScore, RobertaScore } from '@/lib/types';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const vader = require('vader-sentiment');
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const HF_URL =
   'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest';
@@ -20,6 +20,7 @@ interface Review {
 
 function getFailureTtl(errorMessage: string): number {
   if (errorMessage.includes('canopy_429')) return 300;
+  if (errorMessage.includes('canopy_graphql_error')) return 120;
   if (errorMessage.includes('canopy_401') || errorMessage.includes('canopy_403')) return 1800;
   if (errorMessage.includes('canopy_5') || errorMessage.includes('timeout')) return 120;
   if (errorMessage.includes('hf_')) return 120;
@@ -150,6 +151,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
 
       const responseJson = await canopyRes.json();
+      if (responseJson?.errors) {
+        throw new Error('canopy_graphql_error');
+      }
       const raw: { id?: string; body?: string; rating?: number | string }[] =
         responseJson?.data?.amazonProduct?.topReviews ?? [];
 
@@ -227,7 +231,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ inputs: reviews[i].text }),
-          signal: AbortSignal.timeout(4_000),
+          signal: AbortSignal.timeout(8_000),
         });
         if (!hfRes.ok) throw new Error(`hf_${hfRes.status}`);
         const rawHfResponse: unknown = await hfRes.json();
