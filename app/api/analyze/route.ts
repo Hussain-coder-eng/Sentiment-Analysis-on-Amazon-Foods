@@ -173,7 +173,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
                 .digest('hex')
                 .slice(0, 16);
 
-        if (text.length === 0 || rating < 1 || rating > 5) continue;
+        if (text.length === 0 || !Number.isFinite(rating) || rating < 1 || rating > 5) continue;
         if (seen.has(dedupKey)) continue;
         seen.add(dedupKey);
         normalized.push({ text, rating, dedupKey });
@@ -227,7 +227,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ inputs: reviews[i].text }),
-          signal: AbortSignal.timeout(8_000),
+          signal: AbortSignal.timeout(4_000),
         });
         if (!hfRes.ok) throw new Error(`hf_${hfRes.status}`);
         const rawHfResponse: unknown = await hfRes.json();
