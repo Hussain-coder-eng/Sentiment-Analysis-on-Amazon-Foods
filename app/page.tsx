@@ -111,7 +111,7 @@ export default function Home() {
           type="text"
           value={asinInput}
           onChange={e => setAsinInput(e.target.value)}
-          placeholder="Enter Amazon ASIN (e.g. B001E4KFG0)"
+          placeholder="Enter Amazon ASIN (e.g. B000E7L2R4)"
           disabled={analyzing}
           className="border rounded px-3 py-2 w-72 text-sm disabled:opacity-50"
         />
