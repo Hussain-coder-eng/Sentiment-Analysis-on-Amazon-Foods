@@ -105,7 +105,9 @@ export default function Home() {
 
       {/* ASIN input form */}
       <form onSubmit={handleAnalyze} className="flex gap-2 mb-4">
+        <label htmlFor="asin-input" className="sr-only">Amazon ASIN</label>
         <input
+          id="asin-input"
           type="text"
           value={asinInput}
           onChange={e => setAsinInput(e.target.value)}
