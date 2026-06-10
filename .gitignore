@@ -51,3 +51,6 @@ node_modules/
 # External data (not committed)
 amazon-data/
 .vercel/
+
+# Git worktrees
+.worktrees/
