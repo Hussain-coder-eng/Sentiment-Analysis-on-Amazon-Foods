@@ -72,3 +72,12 @@
     pointer-events: none;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  form[aria-label="Analyze Amazon product"],
+  .results-panel {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

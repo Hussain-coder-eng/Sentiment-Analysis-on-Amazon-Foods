@@ -102,7 +102,7 @@ export default function Home() {
         easing: 'easeOutExpo',
       });
     });
-  }, [reviews]);
+  }, [reviews, analyzing]);
 
   function startCountdown(seconds: number, onDone: () => void) {
     setRetryCountdown(seconds);
@@ -130,6 +130,10 @@ export default function Home() {
       return doAnalyze(asin, attempt + 1);
     }
 
+    if (res.status === 202) {
+      setAnalyzeError('Analysis still in progress — please try again in a moment.');
+      return;
+    }
     if (!res.ok) {
       setAnalyzeError((data as { error?: string }).error ?? `Request failed (${res.status})`);
     } else {
@@ -148,10 +152,10 @@ export default function Home() {
     }
     if (countdownRef.current) clearInterval(countdownRef.current);
     setRetryCountdown(null);
-    setAnalyzing(true);
     setAnalyzeError(null);
     setReviews(null);
     setResultAsin(null);
+    setAnalyzing(true);
     try {
       await doAnalyze(trimmed, 1);
     } catch {
@@ -287,7 +291,7 @@ export default function Home() {
 
         {/* Results */}
         {reviews !== null && !analyzing && (
-          <div ref={resultsRef} className="opacity-0">
+          <div ref={resultsRef} className="results-panel opacity-0">
             <div className="mb-6 px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-700/60 backdrop-blur-sm">
               <p className="text-slate-400 text-xs font-mono tracking-wide">
                 <span className="text-green-400">✓</span>{' '}
