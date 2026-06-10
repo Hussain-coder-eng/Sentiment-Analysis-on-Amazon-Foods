@@ -23,4 +23,5 @@ export interface AnalyzeApiResponse {
   reviews: ReviewScore[];
   count: number;
   asin: string;
+  productTitle?: string;
 }

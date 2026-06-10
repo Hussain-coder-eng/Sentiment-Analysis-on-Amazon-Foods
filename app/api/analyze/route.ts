@@ -130,6 +130,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     let reviews: Review[];
     let scored: ReviewScore[] | undefined;
+    let productTitle: string | undefined;
 
     try {
       // Step 9: Canopy GraphQL fetch
@@ -140,7 +141,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           'API-KEY': process.env.CANOPY_API_KEY!,
         },
         body: JSON.stringify({
-          query: `{ amazonProduct(input:{asin:"${normalizedAsin}",domain:US}){ topReviews { id body rating } } }`,
+          query: `{ amazonProduct(input:{asin:"${normalizedAsin}",domain:US}){ title topReviews { id body rating } } }`,
         }),
         signal: AbortSignal.timeout(20_000),
       });
@@ -155,6 +156,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
       const raw: { id?: string; body?: string; rating?: number | string }[] =
         responseJson?.data?.amazonProduct?.topReviews ?? [];
+      productTitle =
+        typeof responseJson?.data?.amazonProduct?.title === 'string'
+          ? responseJson.data.amazonProduct.title
+          : undefined;
 
       const seen = new Set<string>();
       const normalized: Review[] = [];
@@ -301,6 +306,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       reviews: scored!,
       count: scored!.length,
       asin: normalizedAsin,
+      productTitle,
     });
   } finally {
     // Step 13: Release inflight lock
