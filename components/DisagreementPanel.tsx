@@ -13,7 +13,7 @@ export default function DisagreementPanel({ reviews }: Props) {
   return (
     <div className="mt-8">
       <h2 className="text-xl font-semibold mb-4">Top 10 Model Disagreements</h2>
-      <p className="text-sm text-gray-500 mb-4">
+      <p className="text-sm text-muted-foreground mb-4">
         Reviews where VADER and RoBERTa disagree most — the most interesting cases.
       </p>
 
@@ -25,14 +25,14 @@ export default function DisagreementPanel({ reviews }: Props) {
                 <span>
                   #{i + 1} — Disagreement: {review.disagreement.toFixed(3)}
                 </span>
-                <span className="text-gray-500">{review.rating}★</span>
+                <span className="text-muted-foreground">{review.rating}★</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-gray-700 mb-2 line-clamp-3">
+              <p className="text-sm text-card-foreground mb-2 line-clamp-3">
                 {review.text.replace(/<[^>]*>/g, '')}
               </p>
-              <div className="text-xs text-gray-500 flex gap-4">
+              <div className="text-xs text-muted-foreground flex gap-4">
                 <span>VADER compound: {review.vader.compound.toFixed(3)}</span>
                 <span>RoBERTa positive: {review.roberta.positive.toFixed(3)}</span>
               </div>
