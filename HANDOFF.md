@@ -26,8 +26,9 @@ Local env file note: `.env.development.local` has spaces before `=` signs. Refre
 | ASIN | Reviews | Status |
 |------|---------|--------|
 | B000E7L2R4 | 8 | ✅ Cached in KV (scored 2026-06-09) |
+| B00032G1S0 | 5 | ✅ Cached in KV (scored 2026-06-09) |
 
-Other tested ASINs returned PRODUCT_NOT_FOUND or < 5 reviews from Canopy. Need to find more valid ASINs for seeding (see Day 4 below).
+Tested and invalid (PRODUCT_NOT_FOUND in Canopy): B001E4KFG0, B07XTPQNLZ, B001FA1JWK, B00LMTMZQO, B01N9SPQHD, B00CLYA5EQ. Don't retry these.
 
 ---
 
