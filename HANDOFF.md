@@ -1,9 +1,9 @@
-# Session Handoff — Day 4 Complete
+# Session Handoff — Day 5 In Progress
 
-**Date:** 2026-06-09  
+**Date:** 2026-06-10  
 **Branch:** `main` (all work merged)  
 **Live:** https://sentiment-amazon-analyzer.vercel.app  
-**Status:** Hero landing shipped. Demo mode fully removed. Pre-seeding ongoing (rate-limited).
+**Status:** Day 5 UX features shipped (URL→ASIN extraction, product title display). Remaining: seed more ASINs, verify production deploy.
 
 ---
 
@@ -110,8 +110,14 @@ new Redis({ url: process.env.KV_REST_API_URL!, token: process.env.KV_REST_API_TO
 
 ---
 
-## Day 5 (next session)
+## Day 5 Shipped (2026-06-10)
 
-1. **Find + seed more valid ASINs** — only 2 confirmed so far (B000E7L2R4, B00032G1S0). Test new ASINs via live UI. Rate limit: 5 Canopy calls/hour; resets on the hour.
-2. **Verify hero landing on production** — open https://sentiment-amazon-analyzer.vercel.app, confirm dark UI loads, enter B000E7L2R4, check results render. Vercel should have auto-deployed from the main push.
-3. **Optional UX** — product name display (fetch title from Canopy alongside reviews); Amazon URL → ASIN extraction in the input field
+- **URL→ASIN auto-extraction** (`app/page.tsx`): pasting a full Amazon product URL into the ASIN field extracts the ASIN via regex `/(?:\/dp\/|\/product\/)([A-Z0-9]{10})/i`. Plain 10-char ASIN input unchanged. Submit-time validation `/^[A-Z0-9]{10}$/` still backstops everything.
+- **Product title display** (`app/api/analyze/route.ts`, `lib/types.ts`, `app/page.tsx`): Canopy GraphQL query now requests `title`; extracted with a `typeof === 'string'` guard; returned as optional `productTitle` in the fresh-path response only. Cache-hit paths intentionally omit it (documented accepted limitation — title is not stored in the scored cache, key shape `asin:v1:<ASIN>:scored` holds bare ReviewScore[]). UI renders it truncated above the plot when present.
+- Merged to main in commit 8d724ff after code review passed (no Critical/Important findings; 2 Minor: no trailing boundary on ASIN regex capture — backstopped by validation; productTitle not server-sanitized — safe via React text-node escaping).
+
+## Day 6 (next session)
+
+1. **Find + seed more valid ASINs** — only 2 confirmed (B000E7L2R4, B00032G1S0). Rate limit: 5 Canopy calls/hour. Invalid-ASIN blacklist in section above still applies.
+2. **Verify Day 5 features on production** — https://sentiment-amazon-analyzer.vercel.app should auto-deploy from main push 8d724ff. Paste a full Amazon URL → confirm ASIN extraction; analyze an uncached ASIN → confirm product title renders above the chart (cached ASINs won't show a title).
+3. **Optional follow-up** — cache productTitle so cache hits also return it (requires envelope shape change in the scored cache value + key version bump to v2, or dual-shape read compat).
