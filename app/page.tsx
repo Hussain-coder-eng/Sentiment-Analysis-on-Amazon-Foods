@@ -228,7 +228,11 @@ export default function Home() {
               id="asin-input"
               type="text"
               value={asinInput}
-              onChange={e => setAsinInput(e.target.value)}
+              onChange={e => {
+                  const val = e.target.value;
+                  const match = val.match(/(?:\/dp\/|\/product\/)([A-Z0-9]{10})/i);
+                  setAsinInput(match ? match[1].toUpperCase() : val);
+                }}
               placeholder="e.g. B000E7L2R4"
               disabled={analyzing}
               autoComplete="off"
