@@ -15,6 +15,7 @@ export default function Home() {
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
   const [reviews, setReviews] = useState<ReviewScore[] | null>(null);
   const [resultAsin, setResultAsin] = useState<string | null>(null);
+  const [productTitle, setProductTitle] = useState<string | undefined>(undefined);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const heroRef = useRef<HTMLDivElement>(null);
@@ -140,6 +141,7 @@ export default function Home() {
       const response = data as AnalyzeApiResponse;
       setReviews(response.reviews);
       setResultAsin(response.asin);
+      setProductTitle(response.productTitle);
     }
   }
 
@@ -173,6 +175,7 @@ export default function Home() {
     setReviews(null);
     setResultAsin(null);
     setAnalyzeError(null);
+    setProductTitle(undefined);
   }
 
   return (
@@ -297,6 +300,9 @@ export default function Home() {
         {reviews !== null && !analyzing && (
           <div ref={resultsRef} className="results-panel opacity-0">
             <div className="mb-6 px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-700/60 backdrop-blur-sm">
+              {productTitle && (
+                <p className="text-green-400 text-sm font-mono truncate mb-1">{productTitle}</p>
+              )}
               <p className="text-slate-400 text-xs font-mono tracking-wide">
                 <span className="text-green-400">✓</span>{' '}
                 {reviews.length} reviews scored for ASIN{' '}
