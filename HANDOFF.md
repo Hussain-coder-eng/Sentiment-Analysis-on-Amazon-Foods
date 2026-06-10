@@ -27,6 +27,9 @@ Local env file note: `.env.development.local` has spaces before `=` signs. Refre
 |------|---------|--------|
 | B000E7L2R4 | 8 | ✅ Cached in KV (scored 2026-06-09) |
 | B00032G1S0 | 5 | ✅ Cached in KV (scored 2026-06-09) |
+| B01B57DVNE | 8 | ✅ Cached in KV (scored 2026-06-10) — Jack Link's WILD Snack Sticks Hot Spicy |
+| B017835JPC | 8 | ✅ Cached in KV (scored 2026-06-10) — Jack Link's Snack Packs Teriyaki |
+| B0C2FV4W2S | 8 | ✅ Cached in KV (scored 2026-06-10) — Frito-Lay/Jack Link's Snack Mix Variety |
 
 Tested and invalid (PRODUCT_NOT_FOUND in Canopy): B001E4KFG0, B07XTPQNLZ, B001FA1JWK, B00LMTMZQO, B01N9SPQHD, B00CLYA5EQ. Don't retry these.
 
@@ -118,6 +121,6 @@ new Redis({ url: process.env.KV_REST_API_URL!, token: process.env.KV_REST_API_TO
 
 ## Day 6 (next session)
 
-1. **Find + seed more valid ASINs** — only 2 confirmed (B000E7L2R4, B00032G1S0). Rate limit: 5 Canopy calls/hour. Invalid-ASIN blacklist in section above still applies.
-2. **Verify Day 5 features on production** — https://sentiment-amazon-analyzer.vercel.app should auto-deploy from main push 8d724ff. Paste a full Amazon URL → confirm ASIN extraction; analyze an uncached ASIN → confirm product title renders above the chart (cached ASINs won't show a title).
+1. **Find + seed more valid ASINs** — 5 confirmed — see table above. Rate limit: 5 Canopy calls/hour. Invalid-ASIN blacklist in section above still applies.
+2. **Done 2026-06-10:** production verified — landing 200, cached ASIN serves reviews, fresh analyze returns productTitle (verified live with the 3 new seeds).
 3. **Optional follow-up** — cache productTitle so cache hits also return it (requires envelope shape change in the scored cache value + key version bump to v2, or dual-shape read compat).
