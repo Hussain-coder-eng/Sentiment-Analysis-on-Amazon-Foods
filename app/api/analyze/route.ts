@@ -158,7 +158,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         responseJson?.data?.amazonProduct?.topReviews ?? [];
       productTitle =
         typeof responseJson?.data?.amazonProduct?.title === 'string'
-          ? (responseJson.data.amazonProduct.title as string)
+          ? responseJson.data.amazonProduct.title
           : undefined;
 
       const seen = new Set<string>();
