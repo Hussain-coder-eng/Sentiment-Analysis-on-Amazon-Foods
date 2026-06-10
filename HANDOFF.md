@@ -1,9 +1,9 @@
-# Session Handoff — Day 3 Complete
+# Session Handoff — Day 4 Complete
 
 **Date:** 2026-06-09  
 **Branch:** `main` (all work merged)  
 **Live:** https://sentiment-amazon-analyzer.vercel.app  
-**Status:** Feature complete. Pre-seeding in progress (rate-limited — resume next session).
+**Status:** Hero landing shipped. Demo mode fully removed. Pre-seeding ongoing (rate-limited).
 
 ---
 
@@ -55,14 +55,33 @@ GET endpoint — 15-step ML pipeline:
 
 `maxDuration = 120` (budget: 84.7s worst-case).
 
-### `app/page.tsx`
-- ASIN input form with client-side validation + auto-uppercase
-- `loadDemo()` extracted — shared by mount + reset
+### `app/page.tsx` (Day 4 rewrite — hero landing)
+- Demo mode fully removed (`loadDemo`, `demoLoading`, `demoError`, `isLive` gone)
+- Hero heading + subtitle; no chart on landing — results appear only after successful analyze
+- Dark cinema theme: `#0F172A` bg, `#22C55E` accent, Exo heading + Roboto Mono body
+- anime.js v3 entrance animations (hero stagger, form slide, results fade-in); `prefers-reduced-motion` CSS fallback ensures elements visible without JS
 - `doAnalyze()` recursive with 202 auto-retry: up to 3 attempts, 30s countdown between
-- Loading: "Waking up the ML model — this takes ~10-30s on first use."
-- Countdown: "Another analysis in progress — retrying in Ns…"
-- Reset to demo clears all state + countdown timers
-- Charts hidden during analysis; shown for demo and live results
+- After max 202 retries: sets inline error ("Analysis still in progress — try again") instead of crashing
+- "Clear" button replaces "Reset to demo" — clears `reviews`, `resultAsin`, countdown
+- Loading: "Waking up the ML model — this takes ~10–30s on first use."
+
+### `app/layout.tsx`
+- Google Fonts: Exo (headings) + Roboto Mono (body), `next/font/google`, `display: swap`
+- `dark` class on `<html>` — activates shadcn dark CSS vars
+- Metadata: "Amazon Review Sentiment Analyzer"
+
+### `app/globals.css`
+- Full dark palette: `--background: #0F172A`, `--primary: #22C55E`, `--card: #1E293B`, etc.
+- `--chart-*` vars updated to colored palette (green/blue/amber/pink/violet) for chart legibility
+- `.ambient-blob`, `.glow-green`, `.glow-green-text` utilities
+- `@media (prefers-reduced-motion)` fallback: `.animate-in`, form, `.results-panel` → `opacity: 1`
+
+### `components/DisagreementPanel.tsx`
+- `text-gray-700` → `text-card-foreground`, `text-gray-500` → `text-muted-foreground` (dark theme fix)
+
+### `components/SentimentPlot.tsx`
+- Plotly layout: `paper_bgcolor: '#0F172A'`, `plot_bgcolor: '#1E293B'`, `font.color: '#F8FAFC'`, axis `gridcolor: '#334155'`
+- Loading state: `text-muted-foreground` (dark theme fix)
 
 ---
 
@@ -91,9 +110,8 @@ new Redis({ url: process.env.KV_REST_API_URL!, token: process.env.KV_REST_API_TO
 
 ---
 
-## Day 4 (next session)
+## Day 5 (next session)
 
-1. **Find more valid ASINs for seeding** — B000E7L2R4 is the only confirmed one. Try testing new ASINs via the live UI. Rate limit resets hourly; 5 Canopy calls/hour available.
-2. **Seed 4+ more ASINs** — use the production UI or run curl against `/api/analyze` with valid ASINs
-3. Minor: 202 error message after max retries could be friendlier ("Try again in a few minutes")
-4. Minor: No loading indicator during demo reset (stale data shows briefly — acceptable)
+1. **Find + seed more valid ASINs** — only 2 confirmed so far (B000E7L2R4, B00032G1S0). Test new ASINs via live UI. Rate limit: 5 Canopy calls/hour; resets on the hour.
+2. **Verify hero landing on production** — open https://sentiment-amazon-analyzer.vercel.app, confirm dark UI loads, enter B000E7L2R4, check results render. Vercel should have auto-deployed from the main push.
+3. **Optional UX** — product name display (fetch title from Canopy alongside reviews); Amazon URL → ASIN extraction in the input field
