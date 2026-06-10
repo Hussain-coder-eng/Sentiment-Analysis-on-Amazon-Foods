@@ -20,7 +20,7 @@ interface ReactPlotlyProps {
 const Plot = dynamic(() => import('react-plotly.js'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-96 text-gray-500">
+    <div className="flex items-center justify-center h-96 text-muted-foreground">
       Loading chart...
     </div>
   ),
@@ -99,17 +99,24 @@ export default function SentimentPlot({ reviews }: SentimentPlotProps) {
     title: {
       text: 'VADER vs RoBERTa Sentiment',
     },
+    paper_bgcolor: '#0F172A',
+    plot_bgcolor: '#1E293B',
+    font: { color: '#F8FAFC' },
     xaxis: {
       title: {
         text: 'VADER Compound Score',
       },
       range: [MIN_VADER_COMPOUND, MAX_VADER_COMPOUND],
+      gridcolor: '#334155',
+      zerolinecolor: '#475569',
     },
     yaxis: {
       title: {
         text: 'RoBERTa Positive Score',
       },
       range: [MIN_ROBERTA_POSITIVE, MAX_ROBERTA_POSITIVE],
+      gridcolor: '#334155',
+      zerolinecolor: '#475569',
     },
     hovermode: 'closest',
     autosize: true,
