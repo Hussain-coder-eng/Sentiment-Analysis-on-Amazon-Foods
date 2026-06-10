@@ -19,12 +19,6 @@ export interface ReviewScore {
   disagreement: number;   // |vader.compound - (roberta.positive - roberta.negative)|, range [0,2]
 }
 
-export interface DemoApiResponse {
-  reviews: ReviewScore[];
-  count: number;
-  asin: null;
-}
-
 export interface AnalyzeApiResponse {
   reviews: ReviewScore[];
   count: number;
