@@ -3,38 +3,19 @@
 import { useEffect, useState, useRef } from 'react';
 import DisagreementPanel from '@/components/DisagreementPanel';
 import SentimentPlot from '@/components/SentimentPlot';
-import type { ReviewScore, DemoApiResponse, AnalyzeApiResponse } from '@/lib/types';
+import type { ReviewScore, AnalyzeApiResponse } from '@/lib/types';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 30_000;
 
 export default function Home() {
-  const [reviews, setReviews] = useState<ReviewScore[]>([]);
-  const [demoLoading, setDemoLoading] = useState(true);
-  const [demoError, setDemoError] = useState<string | null>(null);
   const [asinInput, setAsinInput] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null);
-  const [isLive, setIsLive] = useState(false);
+  const [reviews, setReviews] = useState<ReviewScore[] | null>(null);
+  const [resultAsin, setResultAsin] = useState<string | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  function loadDemo() {
-    setDemoLoading(true);
-    fetch('/api/demo')
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json() as Promise<DemoApiResponse>;
-      })
-      .then(data => {
-        setReviews(data.reviews);
-        setDemoLoading(false);
-      })
-      .catch(err => {
-        setDemoError(err.message ?? 'Failed to load demo data');
-        setDemoLoading(false);
-      });
-  }
 
   useEffect(() => {
     // Warmup: fire once per browser session, fire-and-forget
@@ -42,7 +23,6 @@ export default function Home() {
       sessionStorage.setItem('warmup-done', '1');
       fetch('/api/warmup').catch(() => {});
     }
-    loadDemo();
   }, []);
 
   function startCountdown(seconds: number, onDone: () => void) {
@@ -74,8 +54,9 @@ export default function Home() {
     if (!res.ok) {
       setAnalyzeError((data as { error?: string }).error ?? `Request failed (${res.status})`);
     } else {
-      setReviews((data as AnalyzeApiResponse).reviews);
-      setIsLive(true);
+      const response = data as AnalyzeApiResponse;
+      setReviews(response.reviews);
+      setResultAsin(response.asin);
     }
   }
 
@@ -90,6 +71,8 @@ export default function Home() {
     setRetryCountdown(null);
     setAnalyzing(true);
     setAnalyzeError(null);
+    setReviews(null);
+    setResultAsin(null);
     try {
       await doAnalyze(trimmed, 1);
     } catch {
@@ -101,36 +84,19 @@ export default function Home() {
     }
   }
 
-  function handleResetDemo() {
+  function handleClear() {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setRetryCountdown(null);
+    setReviews(null);
+    setResultAsin(null);
     setAnalyzeError(null);
-    setIsLive(false);
-    loadDemo();
-  }
-
-  if (demoLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-500 text-lg">Loading demo data...</p>
-      </main>
-    );
-  }
-
-  if (demoError) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <p className="text-red-500 text-lg">Error: {demoError}</p>
-      </main>
-    );
   }
 
   return (
     <main className="min-h-screen p-8">
       <h1 className="text-2xl font-bold mb-2">Amazon Review Sentiment Analyzer</h1>
       <p className="text-gray-600 mb-6">
-        Dual-model sentiment analysis: VADER vs RoBERTa on {reviews.length} Amazon food reviews.
-        Color indicates model disagreement (blue = agreement, red = high disagreement).
+        Enter any Amazon ASIN to analyze real customer reviews with VADER and RoBERTa sentiment models.
       </p>
 
       {/* ASIN input form */}
@@ -141,7 +107,7 @@ export default function Home() {
           type="text"
           value={asinInput}
           onChange={e => setAsinInput(e.target.value)}
-          placeholder="Enter Amazon ASIN (e.g. B000E7L2R4)"
+          placeholder="Enter ASIN (e.g. B000E7L2R4)"
           disabled={analyzing}
           className="border rounded px-3 py-2 w-72 text-sm disabled:opacity-50"
         />
@@ -152,13 +118,13 @@ export default function Home() {
         >
           {analyzing ? 'Analyzing…' : 'Analyze'}
         </button>
-        {(isLive || analyzeError) && !analyzing && (
+        {reviews !== null && !analyzing && (
           <button
             type="button"
-            onClick={handleResetDemo}
+            onClick={handleClear}
             className="border border-gray-300 px-4 py-2 rounded text-sm hover:bg-gray-50"
           >
-            Reset to demo
+            Clear
           </button>
         )}
       </form>
@@ -175,9 +141,12 @@ export default function Home() {
         <p className="text-red-500 text-sm mb-4">{analyzeError}</p>
       )}
 
-      {/* Charts — hidden while analysis is in flight, shown for both demo and live results */}
-      {!analyzing && (
+      {/* Results — only shown after a successful analyze */}
+      {reviews !== null && !analyzing && (
         <>
+          <p className="text-gray-500 text-sm mb-4">
+            Showing {reviews.length} reviews for ASIN {resultAsin}
+          </p>
           <SentimentPlot reviews={reviews} />
           <DisagreementPanel reviews={reviews} />
         </>
