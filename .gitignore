@@ -54,3 +54,6 @@ amazon-data/
 
 # Git worktrees
 .worktrees/
+
+# Superpowers brainstorm artifacts
+.superpowers/
