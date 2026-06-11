@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import DisagreementPanel from '@/components/DisagreementPanel';
 import SentimentPlot from '@/components/SentimentPlot';
 import type { ReviewScore, AnalyzeApiResponse } from '@/lib/types';
+import VerdictCard from '@/components/VerdictCard';
+import HowItWorksStrip from '@/components/HowItWorksStrip';
+import { GALLERY_ITEMS } from '@/lib/gallery';
+import { computeVerdict } from '@/lib/verdict';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 30_000;
@@ -157,6 +161,7 @@ export default function Home() {
     setAnalyzeError(null);
     setReviews(null);
     setResultAsin(null);
+    setProductTitle(undefined);
     setAnalyzing(true);
     try {
       await doAnalyze(trimmed, 1);
@@ -176,6 +181,25 @@ export default function Home() {
     setResultAsin(null);
     setAnalyzeError(null);
     setProductTitle(undefined);
+  }
+
+  function handleGalleryClick(asin: string) {
+    if (analyzing) return;
+    setAsinInput(asin);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setRetryCountdown(null);
+    setAnalyzeError(null);
+    setReviews(null);
+    setResultAsin(null);
+    setProductTitle(undefined);
+    setAnalyzing(true);
+    doAnalyze(asin, 1)
+      .catch(() => setAnalyzeError('Network error — please try again.'))
+      .finally(() => {
+        setAnalyzing(false);
+        setRetryCountdown(null);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+      });
   }
 
   return (
@@ -296,21 +320,46 @@ export default function Home() {
           )}
         </form>
 
+        {/* Example gallery — cached ASINs, instant results */}
+        {reviews === null && !analyzing && (
+          <div className="mb-10">
+            <p className="text-slate-500 text-xs font-mono tracking-widest uppercase mb-3">
+              — or try one —
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {GALLERY_ITEMS.map(item => (
+                <button
+                  key={item.asin}
+                  type="button"
+                  onClick={() => handleGalleryClick(item.asin)}
+                  className="rounded-full border border-slate-700 bg-slate-800/70 px-4 py-2 text-xs font-mono text-slate-300 transition-all duration-150 hover:border-green-500/50 hover:text-green-400 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500/60"
+                >
+                  {item.emoji} {item.shortName}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] font-mono text-slate-600">
+              cached — instant results, no rate limit
+            </p>
+          </div>
+        )}
+
         {/* Results */}
         {reviews !== null && !analyzing && (
           <div ref={resultsRef} className="results-panel opacity-0">
-            <div className="mb-6 px-4 py-3 rounded-lg bg-slate-800/60 border border-slate-700/60 backdrop-blur-sm">
-              {productTitle && (
-                <p className="text-green-400 text-sm font-mono truncate mb-1">{productTitle}</p>
-              )}
-              <p className="text-slate-400 text-xs font-mono tracking-wide">
-                <span className="text-green-400">✓</span>{' '}
-                {reviews.length} reviews scored for ASIN{' '}
-                <span className="text-slate-200 font-medium">{resultAsin}</span>
-              </p>
+            <VerdictCard
+              verdict={computeVerdict(reviews)}
+              asin={resultAsin ?? ''}
+              productTitle={productTitle}
+            />
+            <div className="mt-8">
+              <h2 className="text-slate-400 text-xs font-mono tracking-widest uppercase mb-4">
+                Model deep-dive
+              </h2>
+              <SentimentPlot reviews={reviews} />
+              <DisagreementPanel reviews={reviews} />
             </div>
-            <SentimentPlot reviews={reviews} />
-            <DisagreementPanel reviews={reviews} />
+            <HowItWorksStrip />
           </div>
         )}
       </div>
