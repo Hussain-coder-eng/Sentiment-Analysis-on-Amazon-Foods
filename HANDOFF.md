@@ -1,9 +1,17 @@
-# Session Handoff — Day 5 In Progress
+# Session Handoff — Portfolio Upgrade Phase 1 Shipped
 
-**Date:** 2026-06-10  
+**Date:** 2026-06-11  
 **Branch:** `main` (all work merged)  
 **Live:** https://sentiment-amazon-analyzer.vercel.app  
-**Status:** Day 5 UX features shipped (URL→ASIN extraction, product title display). Remaining: seed more ASINs, verify production deploy.
+**Status:** Phase 1 of portfolio upgrade shipped + verified in production (merge `9d6dc70`): verdict-first editorial results (VerdictCard score ring, model deep-dive section, HowItWorksStrip), example gallery chips (5 cached ASINs, instant results), vitest + 7 verdict unit tests, `beginAnalysis` shared handler.
+
+**Master spec:** `docs/superpowers/specs/2026-06-10-portfolio-upgrade-design.md` (user-approved). Remaining phases:
+- **Phase 2** — aspect-based sentiment (HF zero-shot `bart-large-mnli`, 5 universal labels, fail-soft) + cache envelope v2 `asin:v2:<ASIN>:scored` `{reviews, productTitle?, aspects?, analyzedAt}` (fixes productTitle-on-cache-hit). `maxDuration` 120→180.
+- **Phase 3** — scroll-driven 3D CSS Amazon-box hero (tumble → flaps open → first gallery product card + chips emerge → docks beside form). No three.js. Reduced-motion fallback mandatory.
+- **Phase 4** — `/p/[asin]` share routes + README case study rewrite.
+- **Ongoing** — seed popular-product ASINs (Echo Dot, Stanley, Fire Stick etc.), 5/hour limit; swap generic gallery entries (`Fine Foods Classic`, `Pantry Pick`) for real popular products as seeds land. Each phase: own branch + plan + review per CLAUDE.md.
+
+Carried review notes (non-blocking): vitest is 4.x (plan said 3.x — accepted); verdict clamp defensive; band-boundary tests cover inclusive edge only; HowItWorksStrip step 3 describes Phase 2 aspects pre-ship (sanctioned).
 
 ---
 
