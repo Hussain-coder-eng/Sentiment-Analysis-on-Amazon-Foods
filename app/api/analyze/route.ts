@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 import { createHash } from 'node:crypto';
 import sanitizeHtml from 'sanitize-html';
-import type { ReviewScore, VaderScore, RobertaScore } from '@/lib/types';
+import type { ReviewScore, VaderScore, RobertaScore, AspectScore, ScoredCacheV2 } from '@/lib/types';
+import { aggregateAspects, ASPECT_LABELS, type ZeroShotResult } from '@/lib/aspects';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const vader = require('vader-sentiment');
 
-export const maxDuration = 120;
+export const maxDuration = 180; // worst case: 84.7s pipeline + 8 zero-shot calls x 5s
 
 const HF_URL =
   'https://router.huggingface.co/hf-inference/models/cardiffnlp/twitter-roberta-base-sentiment-latest';
+const ZERO_SHOT_URL =
+  'https://router.huggingface.co/hf-inference/models/facebook/bart-large-mnli';
+const ZERO_SHOT_TIMEOUT_MS = 5_000;
 
 interface Review {
   text: string;
@@ -57,17 +61,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Invalid ASIN' }, { status: 400 });
   }
 
-  const scoredKey = `asin:v1:${normalizedAsin}:scored`;
+  // v2 = envelope { reviews, productTitle?, aspects?, analyzedAt }. v1 keys (bare
+  // ReviewScore[]) are never read again and expire via their 24h TTL — no migration.
+  const scoredKey = `asin:v2:${normalizedAsin}:scored`;
   const failKey = `asin:v1:${normalizedAsin}:failed`;
   const lockKey = `asin:v1:${normalizedAsin}:inflight`;
 
   // Step 3: Cache check (success) — no rate limit applied to cache hits
-  const cachedScored = await kv.get<ReviewScore[]>(scoredKey);
+  const cachedScored = await kv.get<ScoredCacheV2>(scoredKey);
   if (cachedScored) {
     return NextResponse.json({
-      reviews: cachedScored,
-      count: cachedScored.length,
+      reviews: cachedScored.reviews,
+      count: cachedScored.reviews.length,
       asin: normalizedAsin,
+      productTitle: cachedScored.productTitle,
+      aspects: cachedScored.aspects,
     });
   }
 
@@ -105,12 +113,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     // Step 7: Cache re-check inside lock
-    const recheckScored = await kv.get<ReviewScore[]>(scoredKey);
+    const recheckScored = await kv.get<ScoredCacheV2>(scoredKey);
     if (recheckScored) {
       return NextResponse.json({
-        reviews: recheckScored,
-        count: recheckScored.length,
+        reviews: recheckScored.reviews,
+        count: recheckScored.reviews.length,
         asin: normalizedAsin,
+        productTitle: recheckScored.productTitle,
+        aspects: recheckScored.aspects,
       });
     }
 
@@ -294,9 +304,53 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Step 11.5: Aspect detection (fail-soft — aspects are an enhancement, never a blocker).
+    // Errors here must NOT reach the failure cache; we log and omit aspects instead.
+    let aspects: AspectScore[] | undefined;
+    try {
+      const zeroShotResults: ZeroShotResult[] = [];
+      for (let i = 0; i < scored!.length; i++) {
+        const zsRes = await fetch(ZERO_SHOT_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.HF_API_KEY!}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: scored![i].text,
+            parameters: { candidate_labels: [...ASPECT_LABELS], multi_label: true },
+          }),
+          signal: AbortSignal.timeout(ZERO_SHOT_TIMEOUT_MS),
+        });
+        if (!zsRes.ok) throw new Error(`zeroshot_${zsRes.status}`);
+        const raw: unknown = await zsRes.json();
+        const candidate = raw as { labels?: unknown; scores?: unknown };
+        if (!Array.isArray(candidate.labels) || !Array.isArray(candidate.scores)) {
+          throw new Error('zeroshot_unexpected_shape');
+        }
+        zeroShotResults.push({
+          labels: candidate.labels as string[],
+          scores: candidate.scores as number[],
+        });
+        if (i < scored!.length - 1) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      aspects = aggregateAspects(zeroShotResults, scored!);
+    } catch (e) {
+      console.error('aspects_failed', e);
+      aspects = undefined;
+    }
+
     // Step 12: Cache success (best-effort — Redis failure must not poison failure cache)
     try {
-      await kv.set(scoredKey, JSON.stringify(scored!), { ex: 86400 });
+      const envelope: ScoredCacheV2 = {
+        reviews: scored!,
+        productTitle,
+        aspects,
+        analyzedAt: new Date().toISOString(),
+      };
+      await kv.set(scoredKey, JSON.stringify(envelope), { ex: 86400 });
     } catch (e) {
       console.error('cache_write_failed', e);
     }
@@ -307,6 +361,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       count: scored!.length,
       asin: normalizedAsin,
       productTitle,
+      aspects,
     });
   } finally {
     // Step 13: Release inflight lock
