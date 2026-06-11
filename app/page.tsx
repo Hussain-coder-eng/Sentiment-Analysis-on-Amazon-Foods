@@ -345,7 +345,7 @@ export default function Home() {
         )}
 
         {/* Results */}
-        {reviews !== null && !analyzing && (
+        {reviews !== null && reviews.length > 0 && !analyzing && (
           <div ref={resultsRef} className="results-panel opacity-0">
             <VerdictCard
               verdict={computeVerdict(reviews)}
