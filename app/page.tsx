@@ -149,43 +149,7 @@ export default function Home() {
     }
   }
 
-  async function handleAnalyze(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = asinInput.trim().toUpperCase();
-    if (!/^[A-Z0-9]{10}$/.test(trimmed)) {
-      setAnalyzeError('Invalid ASIN — must be 10 uppercase letters/digits (e.g. B000E7L2R4).');
-      return;
-    }
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    setRetryCountdown(null);
-    setAnalyzeError(null);
-    setReviews(null);
-    setResultAsin(null);
-    setProductTitle(undefined);
-    setAnalyzing(true);
-    try {
-      await doAnalyze(trimmed, 1);
-    } catch {
-      setAnalyzeError('Network error — please try again.');
-    } finally {
-      setAnalyzing(false);
-      setRetryCountdown(null);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    }
-  }
-
-  function handleClear() {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    setRetryCountdown(null);
-    setReviews(null);
-    setResultAsin(null);
-    setAnalyzeError(null);
-    setProductTitle(undefined);
-  }
-
-  function handleGalleryClick(asin: string) {
-    if (analyzing) return;
-    setAsinInput(asin);
+  function beginAnalysis(asin: string) {
     if (countdownRef.current) clearInterval(countdownRef.current);
     setRetryCountdown(null);
     setAnalyzeError(null);
@@ -200,6 +164,31 @@ export default function Home() {
         setRetryCountdown(null);
         if (countdownRef.current) clearInterval(countdownRef.current);
       });
+  }
+
+  function handleAnalyze(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = asinInput.trim().toUpperCase();
+    if (!/^[A-Z0-9]{10}$/.test(trimmed)) {
+      setAnalyzeError('Invalid ASIN — must be 10 uppercase letters/digits (e.g. B000E7L2R4).');
+      return;
+    }
+    beginAnalysis(trimmed);
+  }
+
+  function handleClear() {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setRetryCountdown(null);
+    setReviews(null);
+    setResultAsin(null);
+    setAnalyzeError(null);
+    setProductTitle(undefined);
+  }
+
+  function handleGalleryClick(asin: string) {
+    if (analyzing) return;
+    setAsinInput(asin);
+    beginAnalysis(asin);
   }
 
   return (
@@ -334,7 +323,7 @@ export default function Home() {
                   onClick={() => handleGalleryClick(item.asin)}
                   className="rounded-full border border-slate-700 bg-slate-800/70 px-4 py-2 text-xs font-mono text-slate-300 transition-all duration-150 hover:border-green-500/50 hover:text-green-400 cursor-pointer focus:outline-none focus:ring-2 focus:ring-green-500/60"
                 >
-                  {item.emoji} {item.shortName}
+                  <span aria-hidden="true">{item.emoji}</span> {item.shortName}
                 </button>
               ))}
             </div>
