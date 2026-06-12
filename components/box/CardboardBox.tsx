@@ -43,10 +43,19 @@ export default function CardboardBox({
       <div className={`${styles.face} ${styles.front}`}>
         <div className={styles.tape} />
         <div className={styles.smile}>{SMILE_SVG}</div>
+        {/* Front flap hinges from front face top edge */}
+        <div className={styles['flap-front']}>
+          <div className={styles['tape-flap']} />
+        </div>
       </div>
 
       {/* Back face */}
-      <div className={`${styles.face} ${styles.back}`} />
+      <div className={`${styles.face} ${styles.back}`}>
+        {/* Back flap hinges from back face top edge */}
+        <div className={styles['flap-back']}>
+          <div className={styles['tape-flap']} />
+        </div>
+      </div>
 
       {/* Left face */}
       <div className={`${styles.face} ${styles.left}`} />
@@ -56,16 +65,6 @@ export default function CardboardBox({
 
       {/* Bottom face */}
       <div className={`${styles.face} ${styles.bottom}`} />
-
-      {/* Front flap (top-front) */}
-      <div className={`${styles.flap} ${styles['flap-front']}`}>
-        <div className={`${styles['tape-flap']} ${styles['tape-flap-front']}`} />
-      </div>
-
-      {/* Back flap (top-back) */}
-      <div className={`${styles.flap} ${styles['flap-back']}`}>
-        <div className={`${styles['tape-flap']} ${styles['tape-flap-back']}`} />
-      </div>
     </div>
   );
 }
