@@ -1,17 +1,24 @@
-# Session Handoff — Portfolio Upgrade Phase 1 Shipped
+# Session Handoff — Portfolio Upgrade Phases 1 + 2 Shipped
 
-**Date:** 2026-06-11  
+**Date:** 2026-06-11 (late)  
 **Branch:** `main` (all work merged)  
 **Live:** https://sentiment-amazon-analyzer.vercel.app  
-**Status:** Phase 1 of portfolio upgrade shipped + verified in production (merge `9d6dc70`): verdict-first editorial results (VerdictCard score ring, model deep-dive section, HowItWorksStrip), example gallery chips (5 cached ASINs, instant results), vitest + 7 verdict unit tests, `beginAnalysis` shared handler.
+**Status:** Phases 1 and 2 shipped + production-verified.
 
-**Master spec:** `docs/superpowers/specs/2026-06-10-portfolio-upgrade-design.md` (user-approved). Remaining phases:
-- **Phase 2** — aspect-based sentiment (HF zero-shot `bart-large-mnli`, 5 universal labels, fail-soft) + cache envelope v2 `asin:v2:<ASIN>:scored` `{reviews, productTitle?, aspects?, analyzedAt}` (fixes productTitle-on-cache-hit). `maxDuration` 120→180.
+- **Phase 1** (merge `9d6dc70`): verdict-first editorial results (VerdictCard score ring, deep-dive section, HowItWorksStrip), gallery chips, vitest, `beginAnalysis` helper.
+- **Phase 2** (merges `fefcb6d` + fixes `73c0db9`, `1c22064`): zero-shot aspect sentiment (`facebook/bart-large-mnli`, 5 universal labels, ≥0.7 mention threshold, ≥2 mentions, fail-soft) + cache envelope v2 `asin:v2:<ASIN>:scored` `{reviews, productTitle?, aspects?, analyzedAt}`. `maxDuration` 180, inflight lock TTL 180. AspectBars UI between verdict and deep-dive.
+- **Production verified:** fresh analyze B000E7L2R4 → 200 in 15s with 3 aspects (quality +0.53 ×5, value +0.53 ×5, ease of use +0.96 ×2); cache hit → 0.16s WITH productTitle + aspects (Day-6 backlog item closed).
+
+**Phase 2 war story (important for future HF work):** zero-shot via HF router does NOT return classic `{labels, scores}` — it returns a flat `[{label, score}, ...]` pair array (text-classification style). Diagnosed via temp spike route deployed with `vercel deploy --prod` from a never-merged branch (`debug-zeroshot-spike`, deleted; spike route confirmed 404 after next git deploy). Route now parses both shapes. Also: `HF_API_KEY` is a Sensitive env var — `vercel env pull` returns it EMPTY; you cannot test HF calls locally with the prod key. Use the spike-route pattern instead.
+
+**Cache note:** B01B57DVNE, B017835JPC, B0C2FV4W2S were re-cached during debugging WITHOUT aspects (pre-fix runs). Self-heals: 24h TTL expiry → next analyze stores aspects. No action needed.
+
+**Master spec:** `docs/superpowers/specs/2026-06-10-portfolio-upgrade-design.md`. Remaining:
 - **Phase 3** — scroll-driven 3D CSS Amazon-box hero (tumble → flaps open → first gallery product card + chips emerge → docks beside form). No three.js. Reduced-motion fallback mandatory.
 - **Phase 4** — `/p/[asin]` share routes + README case study rewrite.
-- **Ongoing** — seed popular-product ASINs (Echo Dot, Stanley, Fire Stick etc.), 5/hour limit; swap generic gallery entries (`Fine Foods Classic`, `Pantry Pick`) for real popular products as seeds land. Each phase: own branch + plan + review per CLAUDE.md.
+- **Ongoing** — seed popular-product ASINs (Echo Dot, Stanley, Fire Stick etc.), 5/hour Canopy limit (4 burned this session, hour bucket ~00:00-01:00 UTC 06-12); swap generic gallery entries (`Fine Foods Classic`, `Pantry Pick`) once popular seeds land.
 
-Carried review notes (non-blocking): vitest is 4.x (plan said 3.x — accepted); verdict clamp defensive; band-boundary tests cover inclusive edge only; HowItWorksStrip step 3 describes Phase 2 aspects pre-ship (sanctioned).
+Carried review notes (non-blocking): vitest 4.x vs plan's 3.x (accepted); verdict clamp defensive; HowItWorksStrip step 3 now accurate (aspects shipped).
 
 ---
 
