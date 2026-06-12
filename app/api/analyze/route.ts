@@ -324,22 +324,45 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         });
         if (!zsRes.ok) throw new Error(`zeroshot_${zsRes.status}`);
         const raw: unknown = await zsRes.json();
-        // Router may wrap the zero-shot object in a one-element array (cf. RoBERTa unwrap above).
-        const unwrapped = Array.isArray(raw) ? (raw as unknown[])[0] : raw;
-        const candidate = unwrapped as { labels?: unknown; scores?: unknown };
-        if (
-          !Array.isArray(candidate?.labels) ||
-          !Array.isArray(candidate?.scores) ||
-          candidate.labels.length !== candidate.scores.length
-        ) {
-          throw new Error(
-            `zeroshot_unexpected_shape:${JSON.stringify(raw).slice(0, 160)}`,
-          );
+        // Observed live shape: flat [{label, score}, ...] (text-classification style),
+        // sometimes [[...]]-wrapped by the router. Classic zero-shot {labels, scores}
+        // objects are also accepted for resilience to router changes.
+        const unwrapped =
+          Array.isArray(raw) && Array.isArray((raw as unknown[])[0])
+            ? (raw as unknown[][])[0]
+            : raw;
+
+        let labels: string[];
+        let scores: number[];
+
+        if (Array.isArray(unwrapped)) {
+          labels = [];
+          scores = [];
+          for (const p of unwrapped as { label?: unknown; score?: unknown }[]) {
+            if (typeof p?.label !== 'string' || typeof p?.score !== 'number') {
+              throw new Error(
+                `zeroshot_unexpected_shape:${JSON.stringify(raw).slice(0, 160)}`,
+              );
+            }
+            labels.push(p.label);
+            scores.push(p.score);
+          }
+        } else {
+          const candidate = unwrapped as { labels?: unknown; scores?: unknown };
+          if (
+            !Array.isArray(candidate?.labels) ||
+            !Array.isArray(candidate?.scores) ||
+            candidate.labels.length !== candidate.scores.length
+          ) {
+            throw new Error(
+              `zeroshot_unexpected_shape:${JSON.stringify(raw).slice(0, 160)}`,
+            );
+          }
+          labels = candidate.labels as string[];
+          scores = candidate.scores as number[];
         }
-        zeroShotResults.push({
-          labels: candidate.labels as string[],
-          scores: candidate.scores as number[],
-        });
+
+        zeroShotResults.push({ labels, scores });
         if (i < scored!.length - 1) {
           await new Promise<void>((resolve) => setTimeout(resolve, 100));
         }
