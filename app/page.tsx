@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import DisagreementPanel from '@/components/DisagreementPanel';
 import SentimentPlot from '@/components/SentimentPlot';
-import type { ReviewScore, AnalyzeApiResponse } from '@/lib/types';
+import type { ReviewScore, AnalyzeApiResponse, AspectScore } from '@/lib/types';
 import VerdictCard from '@/components/VerdictCard';
+import AspectBars from '@/components/AspectBars';
 import HowItWorksStrip from '@/components/HowItWorksStrip';
 import { GALLERY_ITEMS } from '@/lib/gallery';
 import { computeVerdict } from '@/lib/verdict';
@@ -20,6 +21,7 @@ export default function Home() {
   const [reviews, setReviews] = useState<ReviewScore[] | null>(null);
   const [resultAsin, setResultAsin] = useState<string | null>(null);
   const [productTitle, setProductTitle] = useState<string | undefined>(undefined);
+  const [aspects, setAspects] = useState<AspectScore[] | undefined>(undefined);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const heroRef = useRef<HTMLDivElement>(null);
@@ -146,6 +148,7 @@ export default function Home() {
       setReviews(response.reviews);
       setResultAsin(response.asin);
       setProductTitle(response.productTitle);
+      setAspects(response.aspects);
     }
   }
 
@@ -156,6 +159,7 @@ export default function Home() {
     setReviews(null);
     setResultAsin(null);
     setProductTitle(undefined);
+    setAspects(undefined);
     setAnalyzing(true);
     doAnalyze(asin, 1)
       .catch(() => setAnalyzeError('Network error — please try again.'))
@@ -183,6 +187,7 @@ export default function Home() {
     setResultAsin(null);
     setAnalyzeError(null);
     setProductTitle(undefined);
+    setAspects(undefined);
   }
 
   function handleGalleryClick(asin: string) {
@@ -341,6 +346,7 @@ export default function Home() {
               asin={resultAsin ?? ''}
               productTitle={productTitle}
             />
+            {aspects && aspects.length > 0 && <AspectBars aspects={aspects} />}
             <div className="mt-8">
               <h2 className="text-slate-400 text-xs font-mono tracking-widest uppercase mb-4">
                 Model deep-dive
