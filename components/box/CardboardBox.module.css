@@ -1,0 +1,130 @@
+/* Cardboard Box 3D Component
+
+   Mockup base dimensions: 90w × 64h × 64d
+   All dimensions scale from --box-w custom property:
+   - height: 64/90 = 0.7111
+   - half-depth: 32/90 = 0.3556
+   - side-face width: 64/90 = 0.7111
+   - side translateZ: 45/90 = 0.5
+   - side left offset: 13/90 = 0.1444
+   - tape top position: 28/90 = 0.3111
+   - tape height: 9/90 = 0.1
+*/
+
+.box {
+  position: relative;
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.7111);
+  transform-style: preserve-3d;
+}
+
+.face {
+  position: absolute;
+  border: 1px solid #7a5c3e;
+  box-sizing: border-box;
+}
+
+/* Front and Back faces */
+.front,
+.back {
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.7111);
+  background: #8b6844;
+}
+
+.front {
+  transform: translateZ(calc(var(--box-w) * 0.3556));
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(calc(var(--box-w) * 0.3556));
+}
+
+/* Left and Right side faces */
+.left,
+.right {
+  width: calc(var(--box-w) * 0.7111);
+  height: calc(var(--box-w) * 0.7111);
+  background: #7a5a3a;
+  left: calc(var(--box-w) * 0.1444);
+}
+
+.left {
+  transform: rotateY(-90deg) translateZ(calc(var(--box-w) * 0.5));
+}
+
+.right {
+  transform: rotateY(90deg) translateZ(calc(var(--box-w) * 0.5));
+}
+
+/* Bottom face */
+.bottom {
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.7111);
+  background: #9a754e;
+  transform: rotateX(-90deg) translateZ(calc(var(--box-w) * 0.3556));
+}
+
+/* Top flaps (replace single .t face) */
+.flap {
+  position: absolute;
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.3556);
+  background: #9a754e;
+  border: 1px solid #7a5c3e;
+  box-sizing: border-box;
+}
+
+.flap-front {
+  transform: rotateX(90deg) translateZ(calc(var(--box-w) * 0.3556))
+    rotateX(calc(var(--flap) * -150deg));
+  transform-origin: bottom;
+}
+
+.flap-back {
+  transform: rotateX(90deg) translateZ(calc(var(--box-w) * 0.3556))
+    rotateX(calc(var(--flap) * 150deg));
+  transform-origin: top;
+}
+
+/* Tape stripe on front face */
+.tape {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--box-w) * 0.3111);
+  height: calc(var(--box-w) * 0.1);
+  background: #c9a36a;
+  opacity: 0.85;
+}
+
+/* Tape stripe on flaps (split between front and back flap) */
+.tape-flap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(var(--box-w) * 0.1);
+  background: #c9a36a;
+  opacity: 0.85;
+}
+
+.tape-flap-front {
+  top: calc(var(--box-w) * 0.3111);
+}
+
+.tape-flap-back {
+  bottom: calc(var(--box-w) * 0.3111);
+}
+
+/* Smile decal SVG */
+.smile {
+  position: absolute;
+  width: 65%;
+  left: 15%;
+  bottom: 12%;
+}
+
+.smile svg {
+  width: 100%;
+  height: auto;
+}
