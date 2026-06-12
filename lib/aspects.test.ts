@@ -71,4 +71,25 @@ describe('aggregateAspects', () => {
   it('returns empty array for empty inputs', () => {
     expect(aggregateAspects([], [])).toEqual([]);
   });
+
+  it('score exactly at the 0.7 threshold counts as a mention', () => {
+    const reviews = [review(0.9, 0.1), review(0.8, 0.1)];
+    const exact: ZeroShotResult = {
+      labels: [...ASPECT_LABELS],
+      scores: ASPECT_LABELS.map(l => (l === 'quality' ? 0.7 : 0.1)),
+    };
+    const out = aggregateAspects([exact, exact], reviews);
+    expect(out).toHaveLength(1);
+    expect(out[0].label).toBe('quality');
+    expect(out[0].mentions).toBe(2);
+  });
+
+  it('negative polarity averages correctly for aspects mentioned by negative reviews', () => {
+    const reviews = [review(0.1, 0.9), review(0.2, 0.6)];
+    const zsResults = [zs('packaging & shipping'), zs('packaging & shipping')];
+    const out = aggregateAspects(zsResults, reviews);
+    expect(out).toHaveLength(1);
+    expect(out[0].polarity).toBeCloseTo(((0.1 - 0.9) + (0.2 - 0.6)) / 2, 10);
+    expect(out[0].polarity).toBeLessThan(0);
+  });
 });

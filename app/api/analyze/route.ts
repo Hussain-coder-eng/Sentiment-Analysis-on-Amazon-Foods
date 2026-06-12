@@ -103,10 +103,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   // Step 6: Inflight lock (atomic)
-  const locked = await kv.set(lockKey, '1', { nx: true, ex: 90 });
+  const locked = await kv.set(lockKey, '1', { nx: true, ex: 180 });
   if (!locked) {
     return NextResponse.json(
-      { error: 'Analysis already in progress for this product. Retry in 90s.' },
+      { error: 'Analysis already in progress for this product. Retry shortly.' },
       { status: 202 },
     );
   }
@@ -325,7 +325,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         if (!zsRes.ok) throw new Error(`zeroshot_${zsRes.status}`);
         const raw: unknown = await zsRes.json();
         const candidate = raw as { labels?: unknown; scores?: unknown };
-        if (!Array.isArray(candidate.labels) || !Array.isArray(candidate.scores)) {
+        if (
+          !Array.isArray(candidate.labels) ||
+          !Array.isArray(candidate.scores) ||
+          candidate.labels.length !== candidate.scores.length
+        ) {
           throw new Error('zeroshot_unexpected_shape');
         }
         zeroShotResults.push({
