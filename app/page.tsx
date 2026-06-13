@@ -43,10 +43,11 @@ const BOX_TRANSLATE_Y_FACTOR_DESKTOP = 10;
 const BOX_TRANSLATE_X_FACTOR_MOBILE = 7;
 const BOX_TRANSLATE_Y_FACTOR_MOBILE = 6;
 
-const FORM_REVEAL_START = 0.2;
-const FORM_REVEAL_END = 0.82;
-const GALLERY_REVEAL_START = 0.38;
-const GALLERY_REVEAL_END = 0.9;
+const IDLE_BOX_ANIMATION_END = 0.08;
+const FORM_REVEAL_START = 0.84;
+const FORM_REVEAL_END = 1;
+const GALLERY_REVEAL_START = 0.9;
+const GALLERY_REVEAL_END = 1;
 
 const HERO_STEPS = [
   {
@@ -207,12 +208,7 @@ export default function Home() {
     import('animejs').then(({ default: anime }) => {
       if (cleanedUp) return;
 
-      const targets = [
-        blob1Ref.current,
-        blob2Ref.current,
-        idleFloatRef.current,
-        idleRotateRef.current,
-      ].filter(Boolean);
+      const targets = [blob1Ref.current, blob2Ref.current].filter(Boolean);
 
       const animations: Array<{ pause: () => void }> = [];
 
@@ -244,6 +240,43 @@ export default function Home() {
         );
       }
 
+      cleanup = () => {
+        animations.forEach(animation => animation.pause());
+        anime.remove(targets);
+      };
+    });
+
+    return () => {
+      cleanedUp = true;
+      cleanup();
+    };
+  }, [prefersReducedMotion]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || heroProgress > IDLE_BOX_ANIMATION_END) {
+      if (typeof window !== 'undefined') {
+        import('animejs').then(({ default: anime }) => {
+          anime.remove([idleFloatRef.current, idleRotateRef.current].filter(Boolean));
+          if (idleFloatRef.current) {
+            idleFloatRef.current.style.transform = '';
+          }
+          if (idleRotateRef.current) {
+            idleRotateRef.current.style.transform = '';
+          }
+        });
+      }
+      return;
+    }
+
+    let cleanedUp = false;
+    let cleanup = () => {};
+
+    import('animejs').then(({ default: anime }) => {
+      if (cleanedUp) return;
+
+      const targets = [idleFloatRef.current, idleRotateRef.current].filter(Boolean);
+      const animations: Array<{ pause: () => void }> = [];
+
       if (idleFloatRef.current) {
         animations.push(
           anime({
@@ -261,8 +294,9 @@ export default function Home() {
         animations.push(
           anime({
             targets: idleRotateRef.current,
+            rotateY: ['-8deg', '8deg'],
             rotateZ: ['-1.2deg', '1.2deg'],
-            duration: 3600,
+            duration: 5400,
             direction: 'alternate',
             loop: true,
             easing: 'easeInOutSine',
@@ -273,6 +307,12 @@ export default function Home() {
       cleanup = () => {
         animations.forEach(animation => animation.pause());
         anime.remove(targets);
+        if (idleFloatRef.current) {
+          idleFloatRef.current.style.transform = '';
+        }
+        if (idleRotateRef.current) {
+          idleRotateRef.current.style.transform = '';
+        }
       };
     });
 
@@ -280,7 +320,7 @@ export default function Home() {
       cleanedUp = true;
       cleanup();
     };
-  }, [prefersReducedMotion]);
+  }, [heroProgress, prefersReducedMotion]);
 
   useEffect(() => {
     if (prefersReducedMotion || openFlourishPlayedRef.current || heroProgress < STAGE_OPEN_END) {
@@ -486,8 +526,10 @@ export default function Home() {
   const formPanelStyle: CSSProperties | undefined = prefersReducedMotion
     ? undefined
     : {
-        opacity: 0.72 + formReveal * 0.28,
-        transform: `translateY(${(1 - formReveal) * 36}px) scale(${0.97 + formReveal * 0.03})`,
+        opacity: formReveal,
+        transform: `translateY(${(1 - formReveal) * 48}px) scale(${0.94 + formReveal * 0.06})`,
+        pointerEvents: formReveal === 0 ? 'none' : 'auto',
+        visibility: formReveal === 0 ? 'hidden' : 'visible',
       };
 
   return (
@@ -781,7 +823,10 @@ export default function Home() {
 
       {reviews !== null && reviews.length > 0 && !analyzing ? (
         <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20 md:px-8 lg:px-10">
-          <div ref={resultsRef} className="results-panel opacity-0">
+          <div
+            ref={resultsRef}
+            className={`results-panel ${prefersReducedMotion ? '' : 'opacity-0'}`}
+          >
             <VerdictCard
               verdict={computeVerdict(reviews)}
               asin={resultAsin ?? ''}
