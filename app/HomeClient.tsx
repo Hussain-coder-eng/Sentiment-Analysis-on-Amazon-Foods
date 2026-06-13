@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -134,6 +135,29 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
 
   beginAnalysisRef.current = beginAnalysis;
 
+  const clearCountdown = useCallback(() => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
+  }, []);
+
+  const resetInvalidAnalysisState = useCallback(() => {
+    activeAbortControllerRef.current?.abort();
+    activeAbortControllerRef.current = null;
+    activeRequestIdRef.current += 1;
+    clearCountdown();
+    setRetryCountdown(null);
+    setAnalyzing(false);
+    setReviews(null);
+    setResultAsin(null);
+    setProductTitle(undefined);
+    setAspects(undefined);
+    setShareStatus(null);
+    setShareError(null);
+    setAnalyzeError(INVALID_ASIN_MESSAGE);
+  }, [clearCountdown]);
+
   // Warmup on mount
   useEffect(() => {
     if (typeof window !== 'undefined' && !sessionStorage.getItem('warmup-done')) {
@@ -149,12 +173,12 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     setAsinInput(normalizedInitialAsin);
 
     if (!isValidAsin(normalizedInitialAsin)) {
-      setAnalyzeError(INVALID_ASIN_MESSAGE);
+      resetInvalidAnalysisState();
       return;
     }
 
     beginAnalysisRef.current(normalizedInitialAsin);
-  }, [normalizedInitialAsin]);
+  }, [normalizedInitialAsin, resetInvalidAnalysisState]);
 
   useEffect(() => {
     return () => {
@@ -162,7 +186,7 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
       clearCountdown();
       activeAbortControllerRef.current?.abort();
     };
-  }, []);
+  }, [clearCountdown]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -425,13 +449,6 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     });
   }, [prefersReducedMotion, reviews]);
 
-  function clearCountdown() {
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
-      countdownRef.current = null;
-    }
-  }
-
   function isActiveRequest(requestId: number): boolean {
     return activeRequestIdRef.current === requestId;
   }
@@ -560,7 +577,7 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     const trimmed = normalizeAsinInput(asinInput);
     setAsinInput(trimmed);
     if (!isValidAsin(trimmed)) {
-      setAnalyzeError(INVALID_ASIN_MESSAGE);
+      resetInvalidAnalysisState();
       return;
     }
     beginAnalysis(trimmed);
