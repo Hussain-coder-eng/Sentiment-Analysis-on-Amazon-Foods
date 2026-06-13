@@ -126,6 +126,8 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   const openFlourishPlayedRef = useRef(false);
   const lastInitialAsinRef = useRef<string | null>(null);
   const beginAnalysisRef = useRef<(asin: string) => void>(() => {});
+  const activeRequestIdRef = useRef(0);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
 
   const heroItem = GALLERY_ITEMS[0];
   const isIdleMotionActive = !prefersReducedMotion && heroProgress <= IDLE_BOX_ANIMATION_END;
@@ -156,9 +158,9 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
 
   useEffect(() => {
     return () => {
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-      }
+      activeRequestIdRef.current += 1;
+      clearCountdown();
+      activeAbortControllerRef.current?.abort();
     };
   }, []);
 
@@ -423,44 +425,91 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     });
   }, [prefersReducedMotion, reviews]);
 
-  function startCountdown(seconds: number, onDone: () => void) {
-    setRetryCountdown(seconds);
-    let remaining = seconds;
-    countdownRef.current = setInterval(() => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        if (countdownRef.current) {
-          clearInterval(countdownRef.current);
-        }
-        setRetryCountdown(null);
-        onDone();
-      } else {
-        setRetryCountdown(remaining);
-      }
-    }, 1000);
+  function clearCountdown() {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
   }
 
-  async function doAnalyze(asin: string, attempt: number): Promise<void> {
-    const res = await fetch(`/api/analyze?asin=${asin}`);
+  function isActiveRequest(requestId: number): boolean {
+    return activeRequestIdRef.current === requestId;
+  }
+
+  function startCountdown(
+    seconds: number,
+    requestId: number,
+    signal: AbortSignal
+  ): Promise<boolean> {
+    if (!isActiveRequest(requestId)) return Promise.resolve(false);
+
+    setRetryCountdown(seconds);
+
+    return new Promise(resolve => {
+      let remaining = seconds;
+
+      const stopCountdown = (completed: boolean) => {
+        clearCountdown();
+        signal.removeEventListener('abort', handleAbort);
+        if (isActiveRequest(requestId)) {
+          setRetryCountdown(null);
+        }
+        resolve(completed);
+      };
+
+      const handleAbort = () => stopCountdown(false);
+
+      signal.addEventListener('abort', handleAbort, { once: true });
+      countdownRef.current = setInterval(() => {
+        if (!isActiveRequest(requestId) || signal.aborted) {
+          stopCountdown(false);
+          return;
+        }
+
+        remaining -= 1;
+        if (remaining <= 0) {
+          stopCountdown(true);
+        } else {
+          setRetryCountdown(remaining);
+        }
+      }, 1000);
+    });
+  }
+
+  async function doAnalyze(
+    asin: string,
+    attempt: number,
+    requestId: number,
+    signal: AbortSignal
+  ): Promise<void> {
+    const res = await fetch(`/api/analyze?asin=${asin}`, { signal });
     const data = (await res.json()) as { error?: string } | AnalyzeApiResponse;
 
+    if (!isActiveRequest(requestId)) return;
+
     if (res.status === 202 && attempt < MAX_RETRIES) {
-      await new Promise<void>(resolve =>
-        startCountdown(Math.round(RETRY_DELAY_MS / 1000), resolve)
+      const shouldRetry = await startCountdown(
+        Math.round(RETRY_DELAY_MS / 1000),
+        requestId,
+        signal
       );
-      return doAnalyze(asin, attempt + 1);
+      if (!shouldRetry || !isActiveRequest(requestId)) return;
+      return doAnalyze(asin, attempt + 1, requestId, signal);
     }
 
     if (res.status === 202) {
+      if (!isActiveRequest(requestId)) return;
       setAnalyzeError('Analysis still in progress - please try again in a moment.');
       return;
     }
 
     if (!res.ok) {
+      if (!isActiveRequest(requestId)) return;
       setAnalyzeError((data as { error?: string }).error ?? `Request failed (${res.status})`);
       return;
     }
 
+    if (!isActiveRequest(requestId)) return;
     const response = data as AnalyzeApiResponse;
     setReviews(response.reviews);
     setResultAsin(response.asin);
@@ -469,7 +518,12 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   }
 
   function beginAnalysis(asin: string) {
-    if (countdownRef.current) clearInterval(countdownRef.current);
+    activeAbortControllerRef.current?.abort();
+    const requestId = activeRequestIdRef.current + 1;
+    activeRequestIdRef.current = requestId;
+    const abortController = new AbortController();
+    activeAbortControllerRef.current = abortController;
+    clearCountdown();
     setRetryCountdown(null);
     setAnalyzeError(null);
     setShareStatus(null);
@@ -480,12 +534,24 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     setAspects(undefined);
     setAnalyzing(true);
 
-    doAnalyze(asin, 1)
-      .catch(() => setAnalyzeError('Network error - please try again.'))
+    doAnalyze(asin, 1, requestId, abortController.signal)
+      .catch(error => {
+        if (
+          !isActiveRequest(requestId) ||
+          (error instanceof DOMException && error.name === 'AbortError')
+        ) {
+          return;
+        }
+        setAnalyzeError('Network error - please try again.');
+      })
       .finally(() => {
+        if (!isActiveRequest(requestId)) return;
         setAnalyzing(false);
         setRetryCountdown(null);
-        if (countdownRef.current) clearInterval(countdownRef.current);
+        clearCountdown();
+        if (activeAbortControllerRef.current === abortController) {
+          activeAbortControllerRef.current = null;
+        }
       });
   }
 
@@ -501,8 +567,12 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   }
 
   function handleClear() {
-    if (countdownRef.current) clearInterval(countdownRef.current);
+    activeRequestIdRef.current += 1;
+    activeAbortControllerRef.current?.abort();
+    activeAbortControllerRef.current = null;
+    clearCountdown();
     setRetryCountdown(null);
+    setAnalyzing(false);
     setReviews(null);
     setResultAsin(null);
     setAnalyzeError(null);
