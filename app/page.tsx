@@ -42,8 +42,13 @@ const BOX_TRANSLATE_X_FACTOR_DESKTOP = 14;
 const BOX_TRANSLATE_Y_FACTOR_DESKTOP = 10;
 const BOX_TRANSLATE_X_FACTOR_MOBILE = 7;
 const BOX_TRANSLATE_Y_FACTOR_MOBILE = 6;
+const DOCK_BOX_X_OFFSET_DESKTOP = 380;
+const DOCK_BOX_Y_OFFSET_DESKTOP = 320;
+const DOCK_BOX_X_OFFSET_MOBILE = 18;
+const DOCK_BOX_Y_OFFSET_MOBILE = 12;
 
 const IDLE_BOX_ANIMATION_END = 0.08;
+const DOCK_BOX_SHIFT_START = 0.88;
 const FORM_REVEAL_START = 0.84;
 const FORM_REVEAL_END = 1;
 const GALLERY_REVEAL_START = 0.9;
@@ -496,6 +501,15 @@ export default function Home() {
   const boxTranslateY =
     boxPose.translateY *
     (isMobile ? BOX_TRANSLATE_Y_FACTOR_MOBILE : BOX_TRANSLATE_Y_FACTOR_DESKTOP);
+  const dockBoxShiftProgress = prefersReducedMotion
+    ? 0
+    : ramp(motionProgress, DOCK_BOX_SHIFT_START, FORM_REVEAL_END);
+  const dockBoxTranslateX =
+    dockBoxShiftProgress *
+    (isMobile ? DOCK_BOX_X_OFFSET_MOBILE : DOCK_BOX_X_OFFSET_DESKTOP);
+  const dockBoxTranslateY =
+    dockBoxShiftProgress *
+    (isMobile ? DOCK_BOX_Y_OFFSET_MOBILE : DOCK_BOX_Y_OFFSET_DESKTOP);
   const formReveal = prefersReducedMotion ? 1 : ramp(motionProgress, FORM_REVEAL_START, FORM_REVEAL_END);
   const galleryReveal = prefersReducedMotion
     ? 1
@@ -505,7 +519,7 @@ export default function Home() {
     opacity: boxPose.opacity,
     transform: [
       isMobile ? 'translateX(-50%)' : '',
-      `translate3d(${boxTranslateX}px, ${boxTranslateY}px, 0)`,
+      `translate3d(${boxTranslateX + dockBoxTranslateX}px, ${boxTranslateY + dockBoxTranslateY}px, 0)`,
       `scale(${boxPose.scale})`,
     ]
       .filter(Boolean)
