@@ -94,8 +94,11 @@ type HomeClientProps = {
 };
 
 export default function HomeClient({ initialAsin }: HomeClientProps) {
+  const normalizedInitialAsin = initialAsin ? normalizeAsinInput(initialAsin) : '';
+  const initialAsinError =
+    normalizedInitialAsin && !isValidAsin(normalizedInitialAsin) ? INVALID_ASIN_MESSAGE : null;
   const [asinInput, setAsinInput] = useState(() =>
-    initialAsin ? normalizeAsinInput(initialAsin) : ''
+    normalizedInitialAsin
   );
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
@@ -526,17 +529,12 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
       return;
     }
 
-    const shareUrl =
-      typeof window !== 'undefined' && window.location.origin
-        ? `${window.location.origin}${sharePath}`
-        : sharePath;
-
     try {
       if (!navigator.clipboard?.writeText) {
         throw new Error('Clipboard API unavailable');
       }
 
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(sharePath);
       setShareError(null);
       setShareStatus(`Copied ${sharePath}`);
     } catch {
@@ -736,6 +734,14 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
                       Follow the box as it tumbles open, pulls out a real product sample, and hands
                       you the same analysis flow that powers the results below.
                     </p>
+                    {initialAsinError ? (
+                      <p
+                        role="alert"
+                        className="mt-5 rounded-lg border border-red-500/35 bg-red-500/10 px-4 py-3 text-sm font-mono leading-6 text-red-300"
+                      >
+                        {initialAsinError}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="mt-10 grid max-w-lg gap-3 lg:ml-[25rem] lg:mr-4 xl:ml-[27rem]">
