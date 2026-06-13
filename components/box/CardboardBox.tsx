@@ -63,6 +63,9 @@ export default function CardboardBox({
       {/* Right face */}
       <div className={`${styles.face} ${styles.right}`} />
 
+      {/* Top face - revealed between the flaps as they open */}
+      <div className={`${styles.face} ${styles.top}`} />
+
       {/* Bottom face */}
       <div className={`${styles.face} ${styles.bottom}`} />
     </div>

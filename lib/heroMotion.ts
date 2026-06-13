@@ -2,7 +2,7 @@
 export const STAGE_IDLE_END = 0.05;       // below: box idles
 export const STAGE_TUMBLE_END = 0.55;     // idle end → tumble end
 export const STAGE_OPEN_END = 0.7;        // flaps fully open
-export const STAGE_FADE_START = 0.85;     // box begins shrink/fade
+export const STAGE_FADE_START = 0.85;     // box begins docking beside the form
 
 // ─── Headline ─────────────────────────────────────────────────────────────────
 export const HEADLINE_FADE_END = 0.35;    // headline fully gone
@@ -72,7 +72,7 @@ export function clamp01(value: number): number {
 
 /**
  * Piecewise linear box pose at scroll progress p.
- * Stages: idle (≤0.05) → tumble (0.05→0.55) → open/settle (0.55→0.85) → fade (0.85→1).
+ * Stages: idle (≤0.05) → tumble (0.05→0.55) → open/settle (0.55→0.85) → dock (0.85→1).
  */
 export function boxPoseAt(progress: number): BoxPose {
   const p = clamp01(progress);
@@ -106,14 +106,14 @@ export function boxPoseAt(progress: number): BoxPose {
     };
   }
 
-  // Fade: 0.85 → 1 — rotate/translate hold at 0.85 values
+  // Dock: 0.85 → 1 — rotate settles while the box shrinks into an accent beside the form
   return {
-    rotateY: 360,
+    rotateY: mapRange(p, STAGE_FADE_START, 1, 360, 366),
     rotateX: 0,
-    translateX: 20,
-    translateY: 26,
-    scale: mapRange(p, STAGE_FADE_START, 1, 0.85, 0.4),
-    opacity: mapRange(p, STAGE_FADE_START, 1, 1, 0),
+    translateX: mapRange(p, STAGE_FADE_START, 1, 20, 24),
+    translateY: mapRange(p, STAGE_FADE_START, 1, 26, 32),
+    scale: mapRange(p, STAGE_FADE_START, 1, 0.85, 0.48),
+    opacity: mapRange(p, STAGE_FADE_START, 1, 1, 0.92),
   };
 }
 

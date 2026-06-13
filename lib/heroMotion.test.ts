@@ -89,15 +89,14 @@ describe('boxPoseAt', () => {
     expect(pose.opacity).toBe(1);
   });
 
-  it('p = 1 → fully faded, scale 0.4, rotate/translate held from 0.85', () => {
+  it('p = 1 → docked beside the form as a visible accent', () => {
     const pose = boxPoseAt(1);
-    expect(pose.scale).toBeCloseTo(0.4, 5);
-    expect(pose.opacity).toBeCloseTo(0, 5);
-    // rotateX/rotateY/translateX/translateY held at 0.85 values
-    expect(pose.rotateY).toBeCloseTo(360, 5);
+    expect(pose.scale).toBeCloseTo(0.48, 5);
+    expect(pose.opacity).toBeCloseTo(0.92, 5);
+    expect(pose.rotateY).toBeCloseTo(366, 5);
     expect(pose.rotateX).toBeCloseTo(0, 5);
-    expect(pose.translateX).toBeCloseTo(20, 5);
-    expect(pose.translateY).toBeCloseTo(26, 5);
+    expect(pose.translateX).toBeCloseTo(24, 5);
+    expect(pose.translateY).toBeCloseTo(32, 5);
   });
 
   it('p < 0 → clamps to idle pose', () => {
@@ -108,8 +107,8 @@ describe('boxPoseAt', () => {
 
   it('p > 1 → clamps to fade-end pose', () => {
     const pose = boxPoseAt(2);
-    expect(pose.scale).toBeCloseTo(0.4, 5);
-    expect(pose.opacity).toBeCloseTo(0, 5);
+    expect(pose.scale).toBeCloseTo(0.48, 5);
+    expect(pose.opacity).toBeCloseTo(0.92, 5);
   });
 });
 

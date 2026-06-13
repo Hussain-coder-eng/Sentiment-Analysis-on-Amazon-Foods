@@ -43,10 +43,15 @@
 
 /* Left and Right side faces */
 .left,
-.right {
+.right,
+.top {
   width: calc(var(--box-w) * 0.7111);
   height: calc(var(--box-w) * 0.7111);
   background: #7a5a3a;
+}
+
+.left,
+.right {
   left: calc(var(--box-w) * 0.1444);
 }
 
@@ -56,6 +61,17 @@
 
 .right {
   transform: rotateY(90deg) translateZ(calc(var(--box-w) * 0.5));
+}
+
+/* Top face */
+.top {
+  width: var(--box-w);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 45%),
+    #6f5235;
+  border-color: #684d33;
+  transform: rotateX(90deg) translateZ(calc(var(--box-w) * 0.3556));
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
 }
 
 /* Bottom face */
