@@ -124,7 +124,7 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   const formPanelRef = useRef<HTMLDivElement>(null);
   const chipRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const openFlourishPlayedRef = useRef(false);
-  const initialAnalysisStartedRef = useRef(false);
+  const lastInitialAsinRef = useRef<string | null>(null);
   const beginAnalysisRef = useRef<(asin: string) => void>(() => {});
 
   const heroItem = GALLERY_ITEMS[0];
@@ -141,19 +141,18 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   }, []);
 
   useEffect(() => {
-    if (!initialAsin || initialAnalysisStartedRef.current) return;
+    if (!normalizedInitialAsin || lastInitialAsinRef.current === normalizedInitialAsin) return;
 
-    initialAnalysisStartedRef.current = true;
-    const normalized = normalizeAsinInput(initialAsin);
-    setAsinInput(normalized);
+    lastInitialAsinRef.current = normalizedInitialAsin;
+    setAsinInput(normalizedInitialAsin);
 
-    if (!isValidAsin(normalized)) {
+    if (!isValidAsin(normalizedInitialAsin)) {
       setAnalyzeError(INVALID_ASIN_MESSAGE);
       return;
     }
 
-    beginAnalysisRef.current(normalized);
-  }, [initialAsin]);
+    beginAnalysisRef.current(normalizedInitialAsin);
+  }, [normalizedInitialAsin]);
 
   useEffect(() => {
     return () => {
@@ -519,6 +518,28 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     beginAnalysis(asin);
   }
 
+  function copyWithTextareaFallback(value: string): boolean {
+    if (typeof document === 'undefined' || !document.body) return false;
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, value.length);
+
+    try {
+      return document.execCommand('copy');
+    } catch {
+      return false;
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  }
+
   async function handleShare() {
     if (!resultAsin) return;
 
@@ -531,10 +552,19 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
 
     try {
       if (!navigator.clipboard?.writeText) {
-        throw new Error('Clipboard API unavailable');
+        if (!copyWithTextareaFallback(sharePath)) {
+          throw new Error('Clipboard API unavailable');
+        }
+      } else {
+        try {
+          await navigator.clipboard.writeText(sharePath);
+        } catch {
+          if (!copyWithTextareaFallback(sharePath)) {
+            throw new Error('Clipboard fallback failed');
+          }
+        }
       }
 
-      await navigator.clipboard.writeText(sharePath);
       setShareError(null);
       setShareStatus(`Copied ${sharePath}`);
     } catch {
