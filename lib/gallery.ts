@@ -2,6 +2,7 @@ export interface GalleryItem {
   asin: string;
   shortName: string;
   emoji: string;
+  imageUrl?: string;
 }
 
 /**
@@ -10,7 +11,12 @@ export interface GalleryItem {
  * First item doubles as the product that emerges from the 3D box hero (Phase 3).
  */
 export const GALLERY_ITEMS: GalleryItem[] = [
-  { asin: 'B01B57DVNE', shortName: "Jack Link's Snack Sticks", emoji: '🥩' },
+  {
+    asin: 'B01B57DVNE',
+    shortName: "Jack Link's Snack Sticks",
+    emoji: '🥩',
+    imageUrl: 'https://d2lnr5mha7bycj.cloudfront.net/product-image/file/large_93b1933c-ae91-4dd6-bfd3-2975af558b50.png',
+  },
   { asin: 'B017835JPC', shortName: 'Teriyaki Snack Packs', emoji: '🍖' },
   { asin: 'B0C2FV4W2S', shortName: 'Snack Mix Variety', emoji: '🥨' },
   { asin: 'B000E7L2R4', shortName: 'Fine Foods Classic', emoji: '🛒' },

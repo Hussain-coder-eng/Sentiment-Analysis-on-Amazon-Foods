@@ -1,0 +1,137 @@
+/* Cardboard Box 3D Component
+
+   Mockup base dimensions: 90w × 64h × 64d
+   All dimensions scale from --box-w custom property:
+   - height: 64/90 = 0.7111
+   - half-depth: 32/90 = 0.3556
+   - side-face width: 64/90 = 0.7111
+   - side translateZ: 45/90 = 0.5
+   - side left offset: 13/90 = 0.1444
+   - tape top position: 28/90 = 0.3111
+   - tape height: 9/90 = 0.1
+*/
+
+.box {
+  position: relative;
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.7111);
+  transform-style: preserve-3d;
+}
+
+.face {
+  position: absolute;
+  border: 1px solid #7a5c3e;
+  box-sizing: border-box;
+}
+
+/* Front and Back faces */
+.front,
+.back {
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.7111);
+  background: #8b6844;
+  transform-style: preserve-3d;
+}
+
+.front {
+  transform: translateZ(calc(var(--box-w) * 0.3556));
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(calc(var(--box-w) * 0.3556));
+}
+
+/* Left and Right side faces */
+.left,
+.right,
+.top {
+  width: calc(var(--box-w) * 0.7111);
+  height: calc(var(--box-w) * 0.7111);
+  background: #7a5a3a;
+}
+
+.left,
+.right {
+  left: calc(var(--box-w) * 0.1444);
+}
+
+.left {
+  transform: rotateY(-90deg) translateZ(calc(var(--box-w) * 0.5));
+}
+
+.right {
+  transform: rotateY(90deg) translateZ(calc(var(--box-w) * 0.5));
+}
+
+/* Top face */
+.top {
+  width: var(--box-w);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 45%),
+    #6f5235;
+  border-color: #684d33;
+  transform: rotateX(90deg) translateZ(calc(var(--box-w) * 0.3556));
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+/* Bottom face */
+.bottom {
+  width: var(--box-w);
+  height: calc(var(--box-w) * 0.7111);
+  background: #9a754e;
+  transform: rotateX(-90deg) translateZ(calc(var(--box-w) * 0.3556));
+}
+
+/* Flaps hinge from the top edges of the front/back faces. Sitting at
+   bottom:100% in the face's plane, rotateX(90deg) folds a flap inward to
+   lie flat across half the top depth (closed); decreasing toward -60deg
+   swings it up and outward (open). --flap 0→1 maps 90deg→-60deg. */
+.flap-front,
+.flap-back {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 100%;
+  height: calc(var(--box-w) * 0.3556);
+  background: #9a754e;
+  border: 1px solid #7a5c3e;
+  box-sizing: border-box;
+  transform-origin: bottom center;
+  transform: rotateX(calc(90deg - var(--flap) * 150deg));
+}
+
+/* Tape stripe on front face */
+.tape {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--box-w) * 0.3111);
+  height: calc(var(--box-w) * 0.1);
+  background: #c9a36a;
+  opacity: 0.85;
+}
+
+/* Tape on each flap — top:0 sits on the free edge (the center seam when
+   closed). Two 0.05-height halves form one continuous 0.1 stripe. */
+.tape-flap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--box-w) * 0.05);
+  background: #c9a36a;
+  opacity: 0.85;
+}
+
+/* Smile decal SVG */
+.smile {
+  position: absolute;
+  width: 65%;
+  left: 15%;
+  bottom: 12%;
+}
+
+.smile svg {
+  width: 100%;
+  height: auto;
+}
