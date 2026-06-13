@@ -53,6 +53,8 @@ const FORM_REVEAL_START = 0.84;
 const FORM_REVEAL_END = 1;
 const GALLERY_REVEAL_START = 0.9;
 const GALLERY_REVEAL_END = 1;
+const HERO_CARD_INTERACTIVE_OPACITY_MIN = 0.12;
+const GALLERY_INTERACTIVE_REVEAL_MIN = 0.12;
 
 const HERO_STEPS = [
   {
@@ -115,6 +117,7 @@ export default function Home() {
   const openFlourishPlayedRef = useRef(false);
 
   const heroItem = GALLERY_ITEMS[0];
+  const isIdleMotionActive = !prefersReducedMotion && heroProgress <= IDLE_BOX_ANIMATION_END;
 
   // Warmup on mount
   useEffect(() => {
@@ -258,7 +261,7 @@ export default function Home() {
   }, [prefersReducedMotion]);
 
   useEffect(() => {
-    if (prefersReducedMotion || heroProgress > IDLE_BOX_ANIMATION_END) {
+    if (!isIdleMotionActive) {
       if (typeof window !== 'undefined') {
         import('animejs').then(({ default: anime }) => {
           anime.remove([idleFloatRef.current, idleRotateRef.current].filter(Boolean));
@@ -325,7 +328,7 @@ export default function Home() {
       cleanedUp = true;
       cleanup();
     };
-  }, [heroProgress, prefersReducedMotion]);
+  }, [isIdleMotionActive]);
 
   useEffect(() => {
     if (prefersReducedMotion || openFlourishPlayedRef.current || heroProgress < STAGE_OPEN_END) {
@@ -514,6 +517,8 @@ export default function Home() {
   const galleryReveal = prefersReducedMotion
     ? 1
     : ramp(motionProgress, GALLERY_REVEAL_START, GALLERY_REVEAL_END);
+  const isHeroCardInteractive = prefersReducedMotion || cardPose.opacity >= HERO_CARD_INTERACTIVE_OPACITY_MIN;
+  const isGalleryInteractive = prefersReducedMotion || galleryReveal >= GALLERY_INTERACTIVE_REVEAL_MIN;
 
   const boxShellStyle: CSSProperties = {
     opacity: boxPose.opacity,
@@ -593,13 +598,16 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={() => handleGalleryClick(heroItem.asin)}
-                                disabled={analyzing}
+                                disabled={analyzing || !isHeroCardInteractive}
                                 aria-label={`Analyze ${heroItem.shortName}`}
-                                className="pointer-events-auto absolute left-1/2 top-[-5%] w-[68%] -translate-x-1/2 text-left transition-transform duration-150 focus:outline-none focus:ring-2 focus:ring-green-500/60 disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-hidden={!isHeroCardInteractive}
+                                tabIndex={isHeroCardInteractive ? 0 : -1}
+                                className="absolute left-1/2 top-[-5%] w-[68%] -translate-x-1/2 text-left transition-transform duration-150 focus:outline-none focus:ring-2 focus:ring-green-500/60 disabled:cursor-not-allowed disabled:opacity-60"
                                 style={{
                                   opacity: cardPose.opacity,
                                   transform: `translate(-50%, -${cardPose.translateY}px) scale(${cardPose.scale})`,
                                   transformOrigin: 'bottom center',
+                                  pointerEvents: isHeroCardInteractive ? 'auto' : 'none',
                                 }}
                               >
                                 <div
@@ -801,11 +809,13 @@ export default function Home() {
                   {reviews === null && !analyzing ? (
                     <div
                       className="mt-8"
+                      aria-hidden={!isGalleryInteractive}
                       style={{
                         opacity: galleryReveal,
                         transform: prefersReducedMotion
                           ? 'none'
                           : `translateY(${(1 - galleryReveal) * 16}px)`,
+                        pointerEvents: isGalleryInteractive ? 'auto' : 'none',
                       }}
                     >
                       <p className="text-xs font-mono uppercase tracking-[0.24em] text-slate-500">
@@ -817,6 +827,8 @@ export default function Home() {
                             key={item.asin}
                             type="button"
                             onClick={() => handleGalleryClick(item.asin)}
+                            disabled={analyzing || !isGalleryInteractive}
+                            tabIndex={isGalleryInteractive ? 0 : -1}
                             className="rounded-full border border-slate-700 bg-slate-900/70 px-4 py-2 text-xs font-mono text-slate-300 transition-all duration-150 hover:border-green-500/50 hover:text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500/60"
                           >
                             <span aria-hidden="true">{item.emoji}</span> {item.shortName}
