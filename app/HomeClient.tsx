@@ -28,6 +28,11 @@ import { GALLERY_ITEMS } from '@/lib/gallery';
 import { isValidAsin, normalizeAsinInput, sharePathForAsin } from '@/lib/shareRoutes';
 import type { AnalyzeApiResponse, AspectScore, ReviewScore } from '@/lib/types';
 import { computeVerdict } from '@/lib/verdict';
+import {
+  getInitialAsinDecision,
+  getInvalidAnalysisState,
+  shouldApplyRequestUpdate,
+} from '@/lib/analyzeLifecycle';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 30_000;
@@ -88,16 +93,16 @@ function ramp(progress: number, start: number, end: number): number {
   return (progress - start) / (end - start);
 }
 
-const INVALID_ASIN_MESSAGE = 'Invalid ASIN - must be 10 uppercase letters/digits (e.g. B000E7L2R4).';
-
 type HomeClientProps = {
   initialAsin?: string;
 };
 
 export default function HomeClient({ initialAsin }: HomeClientProps) {
-  const normalizedInitialAsin = initialAsin ? normalizeAsinInput(initialAsin) : '';
-  const initialAsinError =
-    normalizedInitialAsin && !isValidAsin(normalizedInitialAsin) ? INVALID_ASIN_MESSAGE : null;
+  const {
+    normalizedAsin: normalizedInitialAsin,
+    shouldAnalyze: shouldAnalyzeInitialAsin,
+    error: initialAsinError,
+  } = getInitialAsinDecision(initialAsin);
   const [asinInput, setAsinInput] = useState(() =>
     normalizedInitialAsin
   );
@@ -143,19 +148,21 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   }, []);
 
   const resetInvalidAnalysisState = useCallback(() => {
+    const invalidState = getInvalidAnalysisState();
+
     activeAbortControllerRef.current?.abort();
     activeAbortControllerRef.current = null;
     activeRequestIdRef.current += 1;
     clearCountdown();
-    setRetryCountdown(null);
-    setAnalyzing(false);
-    setReviews(null);
-    setResultAsin(null);
-    setProductTitle(undefined);
-    setAspects(undefined);
-    setShareStatus(null);
-    setShareError(null);
-    setAnalyzeError(INVALID_ASIN_MESSAGE);
+    setRetryCountdown(invalidState.retryCountdown);
+    setAnalyzing(invalidState.analyzing);
+    setReviews(invalidState.reviews);
+    setResultAsin(invalidState.resultAsin);
+    setProductTitle(invalidState.productTitle);
+    setAspects(invalidState.aspects);
+    setShareStatus(invalidState.shareStatus);
+    setShareError(invalidState.shareError);
+    setAnalyzeError(invalidState.analyzeError);
   }, [clearCountdown]);
 
   // Warmup on mount
@@ -172,13 +179,13 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
     lastInitialAsinRef.current = normalizedInitialAsin;
     setAsinInput(normalizedInitialAsin);
 
-    if (!isValidAsin(normalizedInitialAsin)) {
+    if (!shouldAnalyzeInitialAsin) {
       resetInvalidAnalysisState();
       return;
     }
 
     beginAnalysisRef.current(normalizedInitialAsin);
-  }, [normalizedInitialAsin, resetInvalidAnalysisState]);
+  }, [normalizedInitialAsin, resetInvalidAnalysisState, shouldAnalyzeInitialAsin]);
 
   useEffect(() => {
     return () => {
@@ -450,7 +457,7 @@ export default function HomeClient({ initialAsin }: HomeClientProps) {
   }, [prefersReducedMotion, reviews]);
 
   function isActiveRequest(requestId: number): boolean {
-    return activeRequestIdRef.current === requestId;
+    return shouldApplyRequestUpdate({ activeRequestId: activeRequestIdRef.current, requestId });
   }
 
   function startCountdown(

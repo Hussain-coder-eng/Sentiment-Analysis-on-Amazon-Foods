@@ -4,6 +4,8 @@ This is a deployed Next.js case study that turns an Amazon ASIN or product URL i
 
 **Live demo:** https://sentiment-amazon-analyzer.vercel.app
 
+![Gallery GIF showing the ASIN form, cached samples, and sentiment result cards](docs/assets/phase-4-gallery-preview.gif)
+
 Try a cached sample for instant results: `B000E7L2R4`, `B00032G1S0`, `B01B57DVNE`, `B017835JPC`, or `B0C2FV4W2S`.
 
 ## Architecture
